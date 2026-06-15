@@ -26,6 +26,6 @@ jobs:
             chmod +x gradlew &&
             ./gradlew bootJar -x test &&
             sudo systemctl restart ddara &&
-            sleep 5 &&
-            curl -fsS http://localhost:8080/api/health
+            sleep 10 &&
+            curl --retry 15 --retry-delay 3 --retry-connrefused -fsS http://localhost:8080/api/health
           "
