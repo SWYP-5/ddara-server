@@ -45,8 +45,8 @@ public class GroupController {
     // 초대 코드로 모임 미리 보기
     @GetMapping("/preview")
     public GroupPreviewResponse previewGroup(@AuthenticationPrincipal Long userId,
-                                             @RequestParam String code) {
-        return groupService.previewGroup(userId, code);
+                                             @RequestParam String inviteCode) {
+        return groupService.previewGroup(userId, inviteCode);
     }
 
     // 모임 참여
