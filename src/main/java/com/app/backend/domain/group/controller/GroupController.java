@@ -12,6 +12,7 @@ import com.app.backend.domain.group.service.GroupService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -71,5 +72,13 @@ public class GroupController {
     public GroupInviteResponse getInviteCode(@AuthenticationPrincipal Long userId,
                                              @PathVariable Long groupId) {
         return groupService.getInviteCode(userId, groupId);
+    }
+
+    // 모임 나가기
+    @DeleteMapping("/{groupId}/members/me")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void leaveGroup(@AuthenticationPrincipal Long userId,
+                           @PathVariable Long groupId) {
+        groupService.leaveGroup(userId, groupId);
     }
 }

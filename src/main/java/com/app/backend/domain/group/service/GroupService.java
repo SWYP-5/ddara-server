@@ -165,6 +165,19 @@ public class GroupService {
     }
 
     @Transactional
+    public void leaveGroup(Long userId, Long groupId) {
+        if (!groupRepository.existsById(groupId)) {
+            throw new CustomException(ErrorCode.GROUP_NOT_FOUND);
+        }
+
+        Membership membership = membershipRepository.findByGroupIdAndUserId(groupId, userId)
+                .filter(Membership::isActive)
+                .orElseThrow(() -> new CustomException(ErrorCode.NOT_GROUP_MEMBER));
+
+        membership.leave(LocalDateTime.now());
+    }
+
+    @Transactional
     public GroupJoinResponse joinGroup(Long userId, String inviteCode) {
         Group group = groupRepository.findByInviteCode(inviteCode)
                 .orElseThrow(() -> new CustomException(ErrorCode.INVALID_INVITE_CODE));

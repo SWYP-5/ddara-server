@@ -51,6 +51,11 @@ public class Membership {
         return leftAt == null;
     }
 
+    // 모임 나가기: left_at에 시각 기록 (soft delete)
+    public void leave(LocalDateTime leftAt) {
+        this.leftAt = leftAt;
+    }
+
     // 나갔던 멤버가 다시 합류: 새 row 대신 left_at을 NULL로 복귀
     public void rejoin(LocalDateTime joinedAt) {
         this.joinedAt = joinedAt;
