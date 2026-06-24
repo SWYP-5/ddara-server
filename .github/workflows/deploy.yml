@@ -29,3 +29,30 @@ jobs:
             sleep 10 &&
             curl --retry 15 --retry-delay 3 --retry-connrefused -fsS http://localhost:8080/api/health
           "
+
+      - name: 배포 성공 디스코드 알림
+        if: success()
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+          ACTOR: ${{ github.actor }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          PAYLOAD=$(jq -n \
+            --arg msg "$COMMIT_MSG" \
+            --arg actor "$ACTOR" \
+            --arg run "$RUN_URL" \
+            '{
+              content: "✅ develop 배포 성공!",
+              embeds: [{
+                title: "EC2 배포 완료",
+                url: $run,
+                color: 3066993,
+                description: (if $msg == "" then "(수동 배포)" else $msg end),
+                fields: [
+                  { name: "배포자", value: $actor, inline: true }
+                ],
+                footer: { text: "Deploy to EC2 (develop)" }
+              }]
+            }')
+          curl -H "Content-Type: application/json" -X POST -d "$PAYLOAD" "$DISCORD_WEBHOOK_URL"
