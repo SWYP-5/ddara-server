@@ -3,6 +3,7 @@ package com.app.backend.domain.group.service;
 import com.app.backend.domain.group.dto.CreateGroupRequest;
 import com.app.backend.domain.group.dto.GroupCreateResponse;
 import com.app.backend.domain.group.dto.GroupListItem;
+import com.app.backend.domain.group.dto.GroupPreviewResponse;
 import com.app.backend.domain.group.dto.MyGroupsResponse;
 import com.app.backend.domain.group.entity.Group;
 import com.app.backend.domain.group.entity.Membership;
@@ -98,6 +99,24 @@ public class GroupService {
                 .toList();
 
         return new MyGroupsResponse(items);
+    }
+
+    @Transactional(readOnly = true)
+    public GroupPreviewResponse previewGroup(Long userId, String inviteCode) {
+        Group group = groupRepository.findByInviteCode(inviteCode)
+                .orElseThrow(() -> new CustomException(ErrorCode.INVALID_INVITE_CODE));
+
+        String ownerNickname = userRepository.findById(group.getOwnerUserId())
+                .map(User::getNickname)
+                .orElse(null);
+
+        long memberCount = membershipRepository.countByGroupIdAndLeftAtIsNull(group.getId());
+
+        boolean alreadyJoined =
+                membershipRepository.existsByGroupIdAndUserIdAndLeftAtIsNull(group.getId(), userId);
+
+        // latestShotUrl: SHOT 도메인 구현 전까지 항상 null
+        return GroupPreviewResponse.of(group, ownerNickname, memberCount, null, alreadyJoined);
     }
 
     private String generateUniqueInviteCode() {

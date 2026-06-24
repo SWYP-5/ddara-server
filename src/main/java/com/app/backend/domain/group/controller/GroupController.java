@@ -2,6 +2,7 @@ package com.app.backend.domain.group.controller;
 
 import com.app.backend.domain.group.dto.CreateGroupRequest;
 import com.app.backend.domain.group.dto.GroupCreateResponse;
+import com.app.backend.domain.group.dto.GroupPreviewResponse;
 import com.app.backend.domain.group.dto.MyGroupsResponse;
 import com.app.backend.domain.group.service.GroupService;
 import jakarta.validation.Valid;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -24,7 +26,7 @@ public class GroupController {
         this.groupService = groupService;
     }
 
-    // GROUP-01 모임 생성
+    // 모임 생성
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public GroupCreateResponse createGroup(@AuthenticationPrincipal Long userId,
@@ -32,9 +34,16 @@ public class GroupController {
         return groupService.createGroup(userId, request);
     }
 
-    // GROUP-02 내 모임 목록
+    // 내 모임 목록
     @GetMapping
     public MyGroupsResponse getMyGroups(@AuthenticationPrincipal Long userId) {
         return groupService.getMyGroups(userId);
+    }
+
+    // 초대 코드로 모임 미리 보기
+    @GetMapping("/preview")
+    public GroupPreviewResponse previewGroup(@AuthenticationPrincipal Long userId,
+                                             @RequestParam String code) {
+        return groupService.previewGroup(userId, code);
     }
 }
