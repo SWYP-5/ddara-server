@@ -13,4 +13,7 @@ public interface MembershipRepository extends JpaRepository<Membership, Membersh
 
     // 한 모임의 현재 멤버 수
     long countByGroupIdAndLeftAtIsNull(Long groupId);
+
+    // 내가 현재 속한 모임 수
+    long countByUserIdAndLeftAtIsNull(Long userId);
 }

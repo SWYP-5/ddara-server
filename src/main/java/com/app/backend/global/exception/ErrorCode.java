@@ -12,7 +12,8 @@ public enum ErrorCode {
     TERMS_NOT_AGREED(HttpStatus.BAD_REQUEST, "약관에 동의해야 합니다."),
     UNSUPPORTED_OAUTH_PROVIDER(HttpStatus.INTERNAL_SERVER_ERROR, "지원하지 않는 소셜 로그인 제공자입니다."),
 
-    INVITE_CODE_GENERATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "초대 코드 생성에 실패했습니다.");
+    INVITE_CODE_GENERATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "초대 코드 생성에 실패했습니다."),
+    GROUP_LIMIT_EXCEEDED(HttpStatus.CONFLICT, "모임은 최대 20개까지 참여할 수 있습니다.");
 
     private final HttpStatus status;
     private final String message;

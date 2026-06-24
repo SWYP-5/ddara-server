@@ -27,6 +27,7 @@ import java.util.stream.Collectors;
 public class GroupService {
 
     private static final int MAX_INVITE_CODE_ATTEMPTS = 10;
+    private static final int MAX_GROUPS_PER_USER = 20;
 
     private final GroupRepository groupRepository;
     private final MembershipRepository membershipRepository;
@@ -45,6 +46,10 @@ public class GroupService {
 
     @Transactional
     public GroupCreateResponse createGroup(Long userId, CreateGroupRequest request) {
+        if (membershipRepository.countByUserIdAndLeftAtIsNull(userId) >= MAX_GROUPS_PER_USER) {
+            throw new CustomException(ErrorCode.GROUP_LIMIT_EXCEEDED);
+        }
+
         Group group = groupRepository.save(Group.builder()
                 .name(request.name())
                 .description(request.description())
