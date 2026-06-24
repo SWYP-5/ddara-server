@@ -46,4 +46,14 @@ public class Membership {
         this.role = role;
         this.joinedAt = joinedAt;
     }
+
+    public boolean isActive() {
+        return leftAt == null;
+    }
+
+    // 나갔던 멤버가 다시 합류: 새 row 대신 left_at을 NULL로 복귀
+    public void rejoin(LocalDateTime joinedAt) {
+        this.joinedAt = joinedAt;
+        this.leftAt = null;
+    }
 }

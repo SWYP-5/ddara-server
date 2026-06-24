@@ -2,6 +2,7 @@ package com.app.backend.domain.group.service;
 
 import com.app.backend.domain.group.dto.CreateGroupRequest;
 import com.app.backend.domain.group.dto.GroupCreateResponse;
+import com.app.backend.domain.group.dto.GroupJoinResponse;
 import com.app.backend.domain.group.dto.GroupListItem;
 import com.app.backend.domain.group.dto.GroupPreviewResponse;
 import com.app.backend.domain.group.dto.MyGroupsResponse;
@@ -117,6 +118,38 @@ public class GroupService {
 
         // latestShotUrl: SHOT 도메인 구현 전까지 항상 null
         return GroupPreviewResponse.of(group, ownerNickname, memberCount, null, alreadyJoined);
+    }
+
+    @Transactional
+    public GroupJoinResponse joinGroup(Long userId, String inviteCode) {
+        Group group = groupRepository.findByInviteCode(inviteCode)
+                .orElseThrow(() -> new CustomException(ErrorCode.INVALID_INVITE_CODE));
+
+        Membership existing =
+                membershipRepository.findByGroupIdAndUserId(group.getId(), userId).orElse(null);
+
+        if (existing != null && existing.isActive()) {
+            throw new CustomException(ErrorCode.ALREADY_JOINED_GROUP);
+        }
+
+        if (membershipRepository.countByUserIdAndLeftAtIsNull(userId) >= MAX_GROUPS_PER_USER) {
+            throw new CustomException(ErrorCode.GROUP_LIMIT_EXCEEDED);
+        }
+
+        if (existing != null) {
+            existing.rejoin(LocalDateTime.now());
+        } else {
+            membershipRepository.save(Membership.builder()
+                    .groupId(group.getId())
+                    .userId(userId)
+                    .role(MembershipRole.MEMBER)
+                    .joinedAt(LocalDateTime.now())
+                    .build());
+        }
+
+        // TODO(NOTI): 합류 성공 시 기존 멤버 전원에게 member_join 알림 발송 (NOTI 도메인 구현 후 연결)
+
+        return GroupJoinResponse.from(group);
     }
 
     private String generateUniqueInviteCode() {

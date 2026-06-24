@@ -5,8 +5,12 @@ import com.app.backend.domain.group.entity.MembershipId;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface MembershipRepository extends JpaRepository<Membership, MembershipId> {
+
+    // 특정 모임의 내 멤버십 (나간 것 포함) — 재참여 복귀 판단용
+    Optional<Membership> findByGroupIdAndUserId(Long groupId, Long userId);
 
     // 내가 현재 속한 멤버십 목록
     List<Membership> findByUserIdAndLeftAtIsNull(Long userId);

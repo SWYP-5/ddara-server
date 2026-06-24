@@ -2,7 +2,9 @@ package com.app.backend.domain.group.controller;
 
 import com.app.backend.domain.group.dto.CreateGroupRequest;
 import com.app.backend.domain.group.dto.GroupCreateResponse;
+import com.app.backend.domain.group.dto.GroupJoinResponse;
 import com.app.backend.domain.group.dto.GroupPreviewResponse;
+import com.app.backend.domain.group.dto.JoinGroupRequest;
 import com.app.backend.domain.group.dto.MyGroupsResponse;
 import com.app.backend.domain.group.service.GroupService;
 import jakarta.validation.Valid;
@@ -45,5 +47,12 @@ public class GroupController {
     public GroupPreviewResponse previewGroup(@AuthenticationPrincipal Long userId,
                                              @RequestParam String code) {
         return groupService.previewGroup(userId, code);
+    }
+
+    // 모임 참여
+    @PostMapping("/join")
+    public GroupJoinResponse joinGroup(@AuthenticationPrincipal Long userId,
+                                       @Valid @RequestBody JoinGroupRequest request) {
+        return groupService.joinGroup(userId, request.inviteCode());
     }
 }
