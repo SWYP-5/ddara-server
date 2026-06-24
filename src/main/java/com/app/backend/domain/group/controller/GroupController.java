@@ -2,6 +2,7 @@ package com.app.backend.domain.group.controller;
 
 import com.app.backend.domain.group.dto.CreateGroupRequest;
 import com.app.backend.domain.group.dto.GroupCreateResponse;
+import com.app.backend.domain.group.dto.GroupDetailResponse;
 import com.app.backend.domain.group.dto.GroupJoinResponse;
 import com.app.backend.domain.group.dto.GroupPreviewResponse;
 import com.app.backend.domain.group.dto.JoinGroupRequest;
@@ -11,6 +12,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -54,5 +56,12 @@ public class GroupController {
     public GroupJoinResponse joinGroup(@AuthenticationPrincipal Long userId,
                                        @Valid @RequestBody JoinGroupRequest request) {
         return groupService.joinGroup(userId, request.inviteCode());
+    }
+
+    // 모임 상세
+    @GetMapping("/{groupId}")
+    public GroupDetailResponse getGroupDetail(@AuthenticationPrincipal Long userId,
+                                              @PathVariable Long groupId) {
+        return groupService.getGroupDetail(userId, groupId);
     }
 }

@@ -2,9 +2,11 @@ package com.app.backend.domain.group.service;
 
 import com.app.backend.domain.group.dto.CreateGroupRequest;
 import com.app.backend.domain.group.dto.GroupCreateResponse;
+import com.app.backend.domain.group.dto.GroupDetailResponse;
 import com.app.backend.domain.group.dto.GroupJoinResponse;
 import com.app.backend.domain.group.dto.GroupListItem;
 import com.app.backend.domain.group.dto.GroupPreviewResponse;
+import com.app.backend.domain.group.dto.MemberResponse;
 import com.app.backend.domain.group.dto.MyGroupsResponse;
 import com.app.backend.domain.group.entity.Group;
 import com.app.backend.domain.group.entity.Membership;
@@ -118,6 +120,29 @@ public class GroupService {
 
         // latestShotUrl: SHOT 도메인 구현 전까지 항상 null
         return GroupPreviewResponse.of(group, ownerNickname, memberCount, null, alreadyJoined);
+    }
+
+    @Transactional(readOnly = true)
+    public GroupDetailResponse getGroupDetail(Long userId, Long groupId) {
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new CustomException(ErrorCode.GROUP_NOT_FOUND));
+
+        if (!membershipRepository.existsByGroupIdAndUserIdAndLeftAtIsNull(groupId, userId)) {
+            throw new CustomException(ErrorCode.NOT_GROUP_MEMBER);
+        }
+
+        List<Membership> members = membershipRepository.findByGroupIdAndLeftAtIsNull(groupId);
+        Map<Long, User> usersById = userRepository.findAllById(
+                        members.stream().map(Membership::getUserId).toList()).stream()
+                .collect(Collectors.toMap(User::getId, Function.identity()));
+
+        List<MemberResponse> memberResponses = members.stream()
+                .sorted(Comparator.comparing(Membership::getJoinedAt))
+                .map(membership -> MemberResponse.of(membership, usersById.get(membership.getUserId())))
+                .toList();
+
+        // CYCLE 도메인 구현 전까지 null
+        return GroupDetailResponse.of(group, memberResponses, null);
     }
 
     @Transactional

@@ -15,6 +15,9 @@ public interface MembershipRepository extends JpaRepository<Membership, Membersh
     // 내가 현재 속한 멤버십 목록
     List<Membership> findByUserIdAndLeftAtIsNull(Long userId);
 
+    // 한 모임의 현재 멤버 목록
+    List<Membership> findByGroupIdAndLeftAtIsNull(Long groupId);
+
     // 한 모임의 현재 멤버 수
     long countByGroupIdAndLeftAtIsNull(Long groupId);
 
