@@ -25,3 +25,7 @@ jwt:
 
 server:
   port: 8080
+
+app:
+  invite:
+    base-url: ${INVITE_BASE_URL:https://ddara.app/invite/}

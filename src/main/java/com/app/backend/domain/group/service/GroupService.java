@@ -3,6 +3,7 @@ package com.app.backend.domain.group.service;
 import com.app.backend.domain.group.dto.CreateGroupRequest;
 import com.app.backend.domain.group.dto.GroupCreateResponse;
 import com.app.backend.domain.group.dto.GroupDetailResponse;
+import com.app.backend.domain.group.dto.GroupInviteResponse;
 import com.app.backend.domain.group.dto.GroupJoinResponse;
 import com.app.backend.domain.group.dto.GroupListItem;
 import com.app.backend.domain.group.dto.GroupPreviewResponse;
@@ -17,6 +18,7 @@ import com.app.backend.domain.user.entity.User;
 import com.app.backend.domain.user.repository.UserRepository;
 import com.app.backend.global.exception.CustomException;
 import com.app.backend.global.exception.ErrorCode;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,15 +39,18 @@ public class GroupService {
     private final MembershipRepository membershipRepository;
     private final UserRepository userRepository;
     private final InviteCodeGenerator inviteCodeGenerator;
+    private final String inviteBaseUrl;
 
     public GroupService(GroupRepository groupRepository,
                         MembershipRepository membershipRepository,
                         UserRepository userRepository,
-                        InviteCodeGenerator inviteCodeGenerator) {
+                        InviteCodeGenerator inviteCodeGenerator,
+                        @Value("${app.invite.base-url}") String inviteBaseUrl) {
         this.groupRepository = groupRepository;
         this.membershipRepository = membershipRepository;
         this.userRepository = userRepository;
         this.inviteCodeGenerator = inviteCodeGenerator;
+        this.inviteBaseUrl = inviteBaseUrl;
     }
 
     @Transactional
@@ -143,6 +148,20 @@ public class GroupService {
 
         // CYCLE 도메인 구현 전까지 null
         return GroupDetailResponse.of(group, memberResponses, null);
+    }
+
+    @Transactional(readOnly = true)
+    public GroupInviteResponse getInviteCode(Long userId, Long groupId) {
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new CustomException(ErrorCode.GROUP_NOT_FOUND));
+
+        if (!membershipRepository.existsByGroupIdAndUserIdAndLeftAtIsNull(groupId, userId)) {
+            throw new CustomException(ErrorCode.NOT_GROUP_MEMBER);
+        }
+
+        // 초대 링크 = 베이스 URL + 초대 코드
+        String inviteLink = inviteBaseUrl + group.getInviteCode();
+        return new GroupInviteResponse(group.getId(), group.getInviteCode(), inviteLink);
     }
 
     @Transactional

@@ -3,6 +3,7 @@ package com.app.backend.domain.group.controller;
 import com.app.backend.domain.group.dto.CreateGroupRequest;
 import com.app.backend.domain.group.dto.GroupCreateResponse;
 import com.app.backend.domain.group.dto.GroupDetailResponse;
+import com.app.backend.domain.group.dto.GroupInviteResponse;
 import com.app.backend.domain.group.dto.GroupJoinResponse;
 import com.app.backend.domain.group.dto.GroupPreviewResponse;
 import com.app.backend.domain.group.dto.JoinGroupRequest;
@@ -63,5 +64,12 @@ public class GroupController {
     public GroupDetailResponse getGroupDetail(@AuthenticationPrincipal Long userId,
                                               @PathVariable Long groupId) {
         return groupService.getGroupDetail(userId, groupId);
+    }
+
+    // 초대 코드·링크 조회
+    @GetMapping("/{groupId}/invite")
+    public GroupInviteResponse getInviteCode(@AuthenticationPrincipal Long userId,
+                                             @PathVariable Long groupId) {
+        return groupService.getInviteCode(userId, groupId);
     }
 }
