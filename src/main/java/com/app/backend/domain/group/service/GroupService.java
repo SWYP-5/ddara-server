@@ -22,9 +22,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.text.Collator;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -103,7 +105,7 @@ public class GroupService {
                     // currentCycle: CYCLE 도메인 구현 전까지 항상 null (진행 중 회차 없음)
                     return GroupListItem.of(group, ownerNickname, memberCount, null);
                 })
-                .sorted(Comparator.comparing(GroupListItem::createdAt).reversed())
+                .sorted(Comparator.comparing(GroupListItem::createdAt))
                 .toList();
 
         return new MyGroupsResponse(items);
@@ -140,9 +142,15 @@ public class GroupService {
         Map<Long, User> usersById = userRepository.findAllById(
                         members.stream().map(Membership::getUserId).toList()).stream()
                 .collect(Collectors.toMap(User::getId, Function.identity()));
-
+        
+        Collator collator = Collator.getInstance(Locale.KOREAN);
         List<MemberResponse> memberResponses = members.stream()
-                .sorted(Comparator.comparing(Membership::getJoinedAt))
+                .sorted(Comparator
+                        .comparing((Membership m) -> !m.getUserId().equals(userId))
+                        .thenComparing(m -> {
+                            User user = usersById.get(m.getUserId());
+                            return user != null ? user.getNickname() : "";
+                        }, collator))
                 .map(membership -> MemberResponse.of(membership, usersById.get(membership.getUserId())))
                 .toList();
 
