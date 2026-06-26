@@ -29,3 +29,8 @@ server:
 app:
   invite:
     base-url: ${INVITE_BASE_URL:https://ddara.app/invite/}
+
+aws:
+  s3:
+    bucket: ${AWS_S3_BUCKET:ddara-images}
+    region: ${AWS_S3_REGION:ap-northeast-2}

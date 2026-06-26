@@ -25,6 +25,7 @@ repositories {
 
 ext {
     jjwtVersion = '0.12.5'
+    awsSdkVersion = '2.31.0'
 }
 
 dependencies {
@@ -57,6 +58,10 @@ dependencies {
 
     // FCM (Firebase Cloud Messaging)
     implementation 'com.google.firebase:firebase-admin:9.3.0'
+
+    // AWS S3 (SDK v2) - s3 모듈에 S3Presigner 포함
+    implementation platform("software.amazon.awssdk:bom:${awsSdkVersion}")
+    implementation 'software.amazon.awssdk:s3'
 
     // Test
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
