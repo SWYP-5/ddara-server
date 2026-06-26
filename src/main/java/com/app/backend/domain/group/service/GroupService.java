@@ -36,6 +36,8 @@ public class GroupService {
 
     private static final int MAX_INVITE_CODE_ATTEMPTS = 10;
     private static final int MAX_GROUPS_PER_USER = 20;
+    private static final int MAX_MEMBERS_PER_GROUP = 8;
+    private static final int INVITE_CODE_VALIDITY_HOURS = 24;
 
     private final GroupRepository groupRepository;
     private final MembershipRepository membershipRepository;
@@ -66,6 +68,7 @@ public class GroupService {
                 .description(request.description())
                 .ownerUserId(userId)
                 .inviteCode(generateUniqueInviteCode())
+                .inviteCodeExpiresAt(LocalDateTime.now().plusHours(INVITE_CODE_VALIDITY_HOURS))
                 .build());
 
         membershipRepository.save(Membership.builder()
@@ -116,6 +119,10 @@ public class GroupService {
         Group group = groupRepository.findByInviteCode(inviteCode)
                 .orElseThrow(() -> new CustomException(ErrorCode.INVALID_INVITE_CODE));
 
+        if (group.isInviteCodeExpired(LocalDateTime.now())) {
+            throw new CustomException(ErrorCode.EXPIRED_INVITE_CODE);
+        }
+
         String ownerNickname = userRepository.findById(group.getOwnerUserId())
                 .map(User::getNickname)
                 .orElse(null);
@@ -126,7 +133,8 @@ public class GroupService {
                 membershipRepository.existsByGroupIdAndUserIdAndLeftAtIsNull(group.getId(), userId);
 
         // latestShotUrl: SHOT 도메인 구현 전까지 항상 null
-        return GroupPreviewResponse.of(group, ownerNickname, memberCount, null, alreadyJoined);
+        return GroupPreviewResponse.of(
+                group, ownerNickname, memberCount, MAX_MEMBERS_PER_GROUP, null, alreadyJoined);
     }
 
     @Transactional(readOnly = true)
@@ -158,7 +166,7 @@ public class GroupService {
         return GroupDetailResponse.of(group, memberResponses, null);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public GroupInviteResponse getInviteCode(Long userId, Long groupId) {
         Group group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new CustomException(ErrorCode.GROUP_NOT_FOUND));
@@ -167,9 +175,16 @@ public class GroupService {
             throw new CustomException(ErrorCode.NOT_GROUP_MEMBER);
         }
 
+        // 만료됐으면 새 코드로 재발급 + 만료시각 갱신 (유효하면 기존 코드 그대로)
+        LocalDateTime now = LocalDateTime.now();
+        if (group.isInviteCodeExpired(now)) {
+            group.reissueInviteCode(generateUniqueInviteCode(), now.plusHours(INVITE_CODE_VALIDITY_HOURS));
+        }
+
         // 초대 링크 = 베이스 URL + 초대 코드
         String inviteLink = inviteBaseUrl + group.getInviteCode();
-        return new GroupInviteResponse(group.getId(), group.getInviteCode(), inviteLink);
+        return new GroupInviteResponse(
+                group.getId(), group.getInviteCode(), inviteLink, group.getInviteCodeExpiresAt());
     }
 
     @Transactional
@@ -190,11 +205,19 @@ public class GroupService {
         Group group = groupRepository.findByInviteCode(inviteCode)
                 .orElseThrow(() -> new CustomException(ErrorCode.INVALID_INVITE_CODE));
 
+        if (group.isInviteCodeExpired(LocalDateTime.now())) {
+            throw new CustomException(ErrorCode.EXPIRED_INVITE_CODE);
+        }
+
         Membership existing =
                 membershipRepository.findByGroupIdAndUserId(group.getId(), userId).orElse(null);
 
         if (existing != null && existing.isActive()) {
             throw new CustomException(ErrorCode.ALREADY_JOINED_GROUP);
+        }
+
+        if (membershipRepository.countByGroupIdAndLeftAtIsNull(group.getId()) >= MAX_MEMBERS_PER_GROUP) {
+            throw new CustomException(ErrorCode.GROUP_FULL);
         }
 
         if (membershipRepository.countByUserIdAndLeftAtIsNull(userId) >= MAX_GROUPS_PER_USER) {

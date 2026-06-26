@@ -36,15 +36,31 @@ public class Group {
     @Column(name = "invite_code", nullable = false, unique = true, length = 20)
     private String inviteCode;
 
+    @Column(name = "invite_code_expires_at", nullable = false)
+    private LocalDateTime inviteCodeExpiresAt;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
     @Builder
-    private Group(String name, String description, Long ownerUserId, String inviteCode) {
+    private Group(String name, String description, Long ownerUserId,
+                  String inviteCode, LocalDateTime inviteCodeExpiresAt) {
         this.name = name;
         this.description = description;
         this.ownerUserId = ownerUserId;
         this.inviteCode = inviteCode;
+        this.inviteCodeExpiresAt = inviteCodeExpiresAt;
+    }
+
+    // 초대코드가 만료됐는지 판단
+    public boolean isInviteCodeExpired(LocalDateTime now) {
+        return now.isAfter(inviteCodeExpiresAt);
+    }
+
+    // 만료된 초대코드를 새 코드로 재발급 + 만료시각 갱신
+    public void reissueInviteCode(String newCode, LocalDateTime newExpiresAt) {
+        this.inviteCode = newCode;
+        this.inviteCodeExpiresAt = newExpiresAt;
     }
 }
