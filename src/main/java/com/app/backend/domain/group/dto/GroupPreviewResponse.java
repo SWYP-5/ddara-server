@@ -8,17 +8,21 @@ public record GroupPreviewResponse(
         String description,
         String ownerNickname,
         long memberCount,
+        int capacity,
+        boolean isFull,
         String latestShotUrl,
         boolean alreadyJoined
 ) {
     public static GroupPreviewResponse of(Group group, String ownerNickname, long memberCount,
-                                          String latestShotUrl, boolean alreadyJoined) {
+                                          int capacity, String latestShotUrl, boolean alreadyJoined) {
         return new GroupPreviewResponse(
                 group.getId(),
                 group.getName(),
                 group.getDescription(),
                 ownerNickname,
                 memberCount,
+                capacity,
+                memberCount >= capacity,
                 latestShotUrl,
                 alreadyJoined
         );
