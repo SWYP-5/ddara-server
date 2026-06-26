@@ -1,0 +1,16 @@
+package com.app.backend.domain.cycle.repository;
+
+import com.app.backend.domain.cycle.entity.Cycle;
+import com.app.backend.domain.cycle.entity.CycleStatus;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.Optional;
+
+public interface CycleRepository extends JpaRepository<Cycle, Long> {
+
+    boolean existsByGroupIdAndStatus(Long groupId, CycleStatus status);
+
+    Optional<Cycle> findByGroupIdAndStatus(Long groupId, CycleStatus status);
+
+    long countByGroupId(Long groupId);
+}
