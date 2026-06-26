@@ -20,7 +20,9 @@ public enum ErrorCode {
     ALREADY_JOINED_GROUP(HttpStatus.CONFLICT, "이미 참여한 모임입니다."),
     GROUP_FULL(HttpStatus.CONFLICT, "모임 정원이 가득 찼습니다."),
     GROUP_NOT_FOUND(HttpStatus.NOT_FOUND, "모임을 찾을 수 없습니다."),
-    NOT_GROUP_MEMBER(HttpStatus.FORBIDDEN, "해당 모임의 멤버가 아닙니다.");
+    NOT_GROUP_MEMBER(HttpStatus.FORBIDDEN, "해당 모임의 멤버가 아닙니다."),
+
+    UNSUPPORTED_IMAGE_TYPE(HttpStatus.BAD_REQUEST, "지원하지 않는 이미지 형식입니다.");
 
     private final HttpStatus status;
     private final String message;
