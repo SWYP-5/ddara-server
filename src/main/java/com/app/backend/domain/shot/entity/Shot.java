@@ -57,4 +57,8 @@ public class Shot {
         this.type = type;
         this.imageUrl = imageUrl;
     }
+
+    public void changeImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
+    }
 }

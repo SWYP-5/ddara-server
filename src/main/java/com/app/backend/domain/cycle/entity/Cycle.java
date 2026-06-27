@@ -62,4 +62,8 @@ public class Cycle {
         this.startedAt = startedAt;
         this.deadlineAt = deadlineAt;
     }
+
+    public void complete() {
+        this.status = CycleStatus.DONE;
+    }
 }

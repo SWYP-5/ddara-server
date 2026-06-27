@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 public class CycleService {
@@ -103,5 +104,14 @@ public class CycleService {
                     return CurrentCycleResponse.of(cycle, starterNickname, starterImageUrl);
                 })
                 .orElseGet(CurrentCycleResponse::empty);
+    }
+
+    // 시작 후 24h(deadline) 지난 진행 중 회차를 일괄 마감 (스케줄러용)
+    @Transactional
+    public int closeOverdueCycles() {
+        List<Cycle> overdue = cycleRepository
+                .findByStatusAndDeadlineAtBefore(CycleStatus.IN_PROGRESS, LocalDateTime.now());
+        overdue.forEach(Cycle::complete);
+        return overdue.size();
     }
 }
