@@ -1,11 +1,13 @@
 package com.app.backend.domain.cycle.controller;
 
 import com.app.backend.domain.cycle.dto.CreateCycleRequest;
+import com.app.backend.domain.cycle.dto.CurrentCycleResponse;
 import com.app.backend.domain.cycle.dto.CycleCreateResponse;
 import com.app.backend.domain.cycle.service.CycleService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -29,5 +31,11 @@ public class CycleController {
                                            @PathVariable Long groupId,
                                            @Valid @RequestBody CreateCycleRequest request) {
         return cycleService.createCycle(userId, groupId, request);
+    }
+
+    @GetMapping("/current")
+    public CurrentCycleResponse getCurrentCycle(@AuthenticationPrincipal Long userId,
+                                                @PathVariable Long groupId) {
+        return cycleService.getCurrentCycle(userId, groupId);
     }
 }
