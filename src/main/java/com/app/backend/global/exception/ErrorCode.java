@@ -22,7 +22,10 @@ public enum ErrorCode {
     GROUP_NOT_FOUND(HttpStatus.NOT_FOUND, "모임을 찾을 수 없습니다."),
     NOT_GROUP_MEMBER(HttpStatus.FORBIDDEN, "해당 모임의 멤버가 아닙니다."),
 
-    UNSUPPORTED_IMAGE_TYPE(HttpStatus.BAD_REQUEST, "지원하지 않는 이미지 형식입니다.");
+    UNSUPPORTED_IMAGE_TYPE(HttpStatus.BAD_REQUEST, "지원하지 않는 이미지 형식입니다."),
+
+    NOT_ENOUGH_MEMBERS(HttpStatus.CONFLICT, "회차 시작에 필요한 최소 인원(3명)에 미달합니다."),
+    CYCLE_ALREADY_IN_PROGRESS(HttpStatus.CONFLICT, "이미 진행 중인 회차가 있습니다.");
 
     private final HttpStatus status;
     private final String message;
