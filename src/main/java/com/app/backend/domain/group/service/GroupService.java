@@ -14,6 +14,7 @@ import com.app.backend.domain.group.dto.GroupListItem;
 import com.app.backend.domain.group.dto.GroupPreviewResponse;
 import com.app.backend.domain.group.dto.MemberResponse;
 import com.app.backend.domain.group.dto.MyGroupsResponse;
+import com.app.backend.domain.group.dto.PastCycleResponse;
 import com.app.backend.domain.group.entity.Group;
 import com.app.backend.domain.group.entity.Membership;
 import com.app.backend.domain.group.entity.MembershipRole;
@@ -32,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.text.Collator;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
@@ -195,7 +197,24 @@ public class GroupService {
 
         boolean canStartCycle = inProgress.isEmpty() && members.size() >= MIN_MEMBERS_TO_START_CYCLE;
 
-        return GroupDetailResponse.of(group, memberResponses, currentCycle, canStartCycle);
+        // 지난 따라찍기 및 통계
+        List<Cycle> doneCycles =
+                cycleRepository.findByGroupIdAndStatusOrderByCycleNumberDesc(groupId, CycleStatus.DONE);
+        List<PastCycleResponse> pastCycles = new ArrayList<>();
+        int myCycleCount = 0;
+        for (Cycle done : doneCycles) {
+            long participantCount = shotRepository.countByCycleIdAndDeletedAtIsNull(done.getId());
+            if (shotRepository.existsByCycleIdAndUserIdAndDeletedAtIsNull(done.getId(), userId)) {
+                myCycleCount++;
+            }
+            pastCycles.add(new PastCycleResponse(
+                    done.getId(), done.getTopic(), starterImageUrl(done),
+                    participantCount, done.getStartedAt()));
+        }
+        int totalCycleCount = doneCycles.size();
+
+        return GroupDetailResponse.of(group, memberResponses, currentCycle, canStartCycle,
+                pastCycles, myCycleCount, totalCycleCount);
     }
 
     @Transactional

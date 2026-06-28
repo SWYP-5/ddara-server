@@ -15,10 +15,15 @@ public record GroupDetailResponse(
         List<MemberResponse> members,
         CurrentCycleDetailResponse currentCycle,
         boolean canStartCycle,
+        List<PastCycleResponse> pastCycles,
+        int myCycleCount,
+        int totalCycleCount,
         LocalDateTime createdAt
 ) {
     public static GroupDetailResponse of(Group group, List<MemberResponse> members,
-                                         CurrentCycleDetailResponse currentCycle, boolean canStartCycle) {
+                                         CurrentCycleDetailResponse currentCycle, boolean canStartCycle,
+                                         List<PastCycleResponse> pastCycles,
+                                         int myCycleCount, int totalCycleCount) {
         return new GroupDetailResponse(
                 group.getId(),
                 group.getName(),
@@ -29,6 +34,9 @@ public record GroupDetailResponse(
                 members,
                 currentCycle,
                 canStartCycle,
+                pastCycles,
+                myCycleCount,
+                totalCycleCount,
                 group.getCreatedAt()
         );
     }
