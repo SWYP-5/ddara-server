@@ -128,10 +128,7 @@ public class GroupService {
                             .map(c -> new CurrentCycleResponse(c.getId(), c.getTopic(), c.getStartedAt()))
                             .orElse(null);
 
-                    Cycle thumbnailCycle = inProgress.orElseGet(() -> cycleRepository
-                            .findTopByGroupIdAndStatusOrderByCycleNumberDesc(group.getId(), CycleStatus.DONE)
-                            .orElse(null));
-                    String thumbnailUrl = starterImageUrl(thumbnailCycle);
+                    String thumbnailUrl = groupThumbnailUrl(group.getId());
 
                     return GroupListItem.of(group, ownerNickname, memberCount, thumbnailUrl, currentCycle);
                 })
@@ -159,9 +156,10 @@ public class GroupService {
         boolean alreadyJoined =
                 membershipRepository.existsByGroupIdAndUserIdAndLeftAtIsNull(group.getId(), userId);
 
-        // latestShotUrl: SHOT 도메인 구현 전까지 항상 null
+        String thumbnailUrl = groupThumbnailUrl(group.getId());
+
         return GroupPreviewResponse.of(
-                group, ownerNickname, memberCount, MAX_MEMBERS_PER_GROUP, null, alreadyJoined);
+                group, ownerNickname, memberCount, MAX_MEMBERS_PER_GROUP, thumbnailUrl, alreadyJoined);
     }
 
     @Transactional(readOnly = true)
@@ -272,6 +270,14 @@ public class GroupService {
         // TODO(NOTI): 합류 성공 시 기존 멤버 전원에게 member_join 알림 발송 (NOTI 도메인 구현 후 연결)
 
         return GroupJoinResponse.from(group);
+    }
+
+    private String groupThumbnailUrl(Long groupId) {
+        Cycle cycle = cycleRepository.findByGroupIdAndStatus(groupId, CycleStatus.IN_PROGRESS)
+                .orElseGet(() -> cycleRepository
+                        .findTopByGroupIdAndStatusOrderByCycleNumberDesc(groupId, CycleStatus.DONE)
+                        .orElse(null));
+        return starterImageUrl(cycle);
     }
 
     private String starterImageUrl(Cycle cycle) {
