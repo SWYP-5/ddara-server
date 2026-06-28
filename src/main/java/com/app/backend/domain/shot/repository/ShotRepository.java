@@ -16,4 +16,6 @@ public interface ShotRepository extends JpaRepository<Shot, Long> {
     long countByCycleIdAndDeletedAtIsNull(Long cycleId);
 
     List<Shot> findByCycleIdAndDeletedAtIsNull(Long cycleId);
+
+    boolean existsByCycleIdAndUserIdAndDeletedAtIsNull(Long cycleId, Long userId);
 }

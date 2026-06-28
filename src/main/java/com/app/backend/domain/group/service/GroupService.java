@@ -1,6 +1,11 @@
 package com.app.backend.domain.group.service;
 
+import com.app.backend.domain.cycle.entity.Cycle;
+import com.app.backend.domain.cycle.entity.CycleStatus;
+import com.app.backend.domain.cycle.repository.CycleRepository;
 import com.app.backend.domain.group.dto.CreateGroupRequest;
+import com.app.backend.domain.group.dto.CurrentCycleDetailResponse;
+import com.app.backend.domain.group.dto.CurrentCycleResponse;
 import com.app.backend.domain.group.dto.GroupCreateResponse;
 import com.app.backend.domain.group.dto.GroupDetailResponse;
 import com.app.backend.domain.group.dto.GroupInviteResponse;
@@ -9,11 +14,15 @@ import com.app.backend.domain.group.dto.GroupListItem;
 import com.app.backend.domain.group.dto.GroupPreviewResponse;
 import com.app.backend.domain.group.dto.MemberResponse;
 import com.app.backend.domain.group.dto.MyGroupsResponse;
+import com.app.backend.domain.group.dto.PastCycleResponse;
 import com.app.backend.domain.group.entity.Group;
 import com.app.backend.domain.group.entity.Membership;
 import com.app.backend.domain.group.entity.MembershipRole;
 import com.app.backend.domain.group.repository.GroupRepository;
 import com.app.backend.domain.group.repository.MembershipRepository;
+import com.app.backend.domain.shot.entity.Shot;
+import com.app.backend.domain.shot.entity.ShotType;
+import com.app.backend.domain.shot.repository.ShotRepository;
 import com.app.backend.domain.user.entity.User;
 import com.app.backend.domain.user.repository.UserRepository;
 import com.app.backend.global.exception.CustomException;
@@ -24,10 +33,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.text.Collator;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -38,21 +49,28 @@ public class GroupService {
     private static final int MAX_GROUPS_PER_USER = 20;
     private static final int MAX_MEMBERS_PER_GROUP = 8;
     private static final int INVITE_CODE_VALIDITY_HOURS = 24;
+    private static final int MIN_MEMBERS_TO_START_CYCLE = 3;
 
     private final GroupRepository groupRepository;
     private final MembershipRepository membershipRepository;
     private final UserRepository userRepository;
+    private final CycleRepository cycleRepository;
+    private final ShotRepository shotRepository;
     private final InviteCodeGenerator inviteCodeGenerator;
     private final String inviteBaseUrl;
 
     public GroupService(GroupRepository groupRepository,
                         MembershipRepository membershipRepository,
                         UserRepository userRepository,
+                        CycleRepository cycleRepository,
+                        ShotRepository shotRepository,
                         InviteCodeGenerator inviteCodeGenerator,
                         @Value("${app.invite.base-url}") String inviteBaseUrl) {
         this.groupRepository = groupRepository;
         this.membershipRepository = membershipRepository;
         this.userRepository = userRepository;
+        this.cycleRepository = cycleRepository;
+        this.shotRepository = shotRepository;
         this.inviteCodeGenerator = inviteCodeGenerator;
         this.inviteBaseUrl = inviteBaseUrl;
     }
@@ -105,8 +123,16 @@ public class GroupService {
                 .map(group -> {
                     String ownerNickname = ownerNicknameById.get(group.getOwnerUserId());
                     long memberCount = membershipRepository.countByGroupIdAndLeftAtIsNull(group.getId());
-                    // currentCycle: CYCLE 도메인 구현 전까지 항상 null (진행 중 회차 없음)
-                    return GroupListItem.of(group, ownerNickname, memberCount, null);
+
+                    Optional<Cycle> inProgress =
+                            cycleRepository.findByGroupIdAndStatus(group.getId(), CycleStatus.IN_PROGRESS);
+                    CurrentCycleResponse currentCycle = inProgress
+                            .map(c -> new CurrentCycleResponse(c.getId(), c.getTopic(), c.getStartedAt()))
+                            .orElse(null);
+
+                    String thumbnailUrl = groupThumbnailUrl(group.getId());
+
+                    return GroupListItem.of(group, ownerNickname, memberCount, thumbnailUrl, currentCycle);
                 })
                 .sorted(Comparator.comparing(GroupListItem::createdAt))
                 .toList();
@@ -132,9 +158,10 @@ public class GroupService {
         boolean alreadyJoined =
                 membershipRepository.existsByGroupIdAndUserIdAndLeftAtIsNull(group.getId(), userId);
 
-        // latestShotUrl: SHOT 도메인 구현 전까지 항상 null
+        String thumbnailUrl = groupThumbnailUrl(group.getId());
+
         return GroupPreviewResponse.of(
-                group, ownerNickname, memberCount, MAX_MEMBERS_PER_GROUP, null, alreadyJoined);
+                group, ownerNickname, memberCount, MAX_MEMBERS_PER_GROUP, thumbnailUrl, alreadyJoined);
     }
 
     @Transactional(readOnly = true)
@@ -162,8 +189,32 @@ public class GroupService {
                 .map(membership -> MemberResponse.of(membership, usersById.get(membership.getUserId())))
                 .toList();
 
-        // CYCLE 도메인 구현 전까지 null
-        return GroupDetailResponse.of(group, memberResponses, null);
+        Optional<Cycle> inProgress =
+                cycleRepository.findByGroupIdAndStatus(groupId, CycleStatus.IN_PROGRESS);
+        CurrentCycleDetailResponse currentCycle = inProgress
+                .map(CurrentCycleDetailResponse::from)
+                .orElse(null);
+
+        boolean canStartCycle = inProgress.isEmpty() && members.size() >= MIN_MEMBERS_TO_START_CYCLE;
+
+        // 지난 따라찍기 및 통계
+        List<Cycle> doneCycles =
+                cycleRepository.findByGroupIdAndStatusOrderByCycleNumberDesc(groupId, CycleStatus.DONE);
+        List<PastCycleResponse> pastCycles = new ArrayList<>();
+        int myCycleCount = 0;
+        for (Cycle done : doneCycles) {
+            long participantCount = shotRepository.countByCycleIdAndDeletedAtIsNull(done.getId());
+            if (shotRepository.existsByCycleIdAndUserIdAndDeletedAtIsNull(done.getId(), userId)) {
+                myCycleCount++;
+            }
+            pastCycles.add(new PastCycleResponse(
+                    done.getId(), done.getTopic(), starterImageUrl(done),
+                    participantCount, done.getStartedAt()));
+        }
+        int totalCycleCount = doneCycles.size();
+
+        return GroupDetailResponse.of(group, memberResponses, currentCycle, canStartCycle,
+                pastCycles, myCycleCount, totalCycleCount);
     }
 
     @Transactional
@@ -238,6 +289,23 @@ public class GroupService {
         // TODO(NOTI): 합류 성공 시 기존 멤버 전원에게 member_join 알림 발송 (NOTI 도메인 구현 후 연결)
 
         return GroupJoinResponse.from(group);
+    }
+
+    private String groupThumbnailUrl(Long groupId) {
+        Cycle cycle = cycleRepository.findByGroupIdAndStatus(groupId, CycleStatus.IN_PROGRESS)
+                .orElseGet(() -> cycleRepository
+                        .findTopByGroupIdAndStatusOrderByCycleNumberDesc(groupId, CycleStatus.DONE)
+                        .orElse(null));
+        return starterImageUrl(cycle);
+    }
+
+    private String starterImageUrl(Cycle cycle) {
+        if (cycle == null) {
+            return null;
+        }
+        return shotRepository.findByCycleIdAndType(cycle.getId(), ShotType.STARTER)
+                .map(Shot::getImageUrl)
+                .orElse(null);
     }
 
     private String generateUniqueInviteCode() {
