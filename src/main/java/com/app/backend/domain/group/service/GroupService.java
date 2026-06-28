@@ -1,6 +1,10 @@
 package com.app.backend.domain.group.service;
 
+import com.app.backend.domain.cycle.entity.Cycle;
+import com.app.backend.domain.cycle.entity.CycleStatus;
+import com.app.backend.domain.cycle.repository.CycleRepository;
 import com.app.backend.domain.group.dto.CreateGroupRequest;
+import com.app.backend.domain.group.dto.CurrentCycleResponse;
 import com.app.backend.domain.group.dto.GroupCreateResponse;
 import com.app.backend.domain.group.dto.GroupDetailResponse;
 import com.app.backend.domain.group.dto.GroupInviteResponse;
@@ -14,6 +18,9 @@ import com.app.backend.domain.group.entity.Membership;
 import com.app.backend.domain.group.entity.MembershipRole;
 import com.app.backend.domain.group.repository.GroupRepository;
 import com.app.backend.domain.group.repository.MembershipRepository;
+import com.app.backend.domain.shot.entity.Shot;
+import com.app.backend.domain.shot.entity.ShotType;
+import com.app.backend.domain.shot.repository.ShotRepository;
 import com.app.backend.domain.user.entity.User;
 import com.app.backend.domain.user.repository.UserRepository;
 import com.app.backend.global.exception.CustomException;
@@ -28,6 +35,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -42,17 +50,23 @@ public class GroupService {
     private final GroupRepository groupRepository;
     private final MembershipRepository membershipRepository;
     private final UserRepository userRepository;
+    private final CycleRepository cycleRepository;
+    private final ShotRepository shotRepository;
     private final InviteCodeGenerator inviteCodeGenerator;
     private final String inviteBaseUrl;
 
     public GroupService(GroupRepository groupRepository,
                         MembershipRepository membershipRepository,
                         UserRepository userRepository,
+                        CycleRepository cycleRepository,
+                        ShotRepository shotRepository,
                         InviteCodeGenerator inviteCodeGenerator,
                         @Value("${app.invite.base-url}") String inviteBaseUrl) {
         this.groupRepository = groupRepository;
         this.membershipRepository = membershipRepository;
         this.userRepository = userRepository;
+        this.cycleRepository = cycleRepository;
+        this.shotRepository = shotRepository;
         this.inviteCodeGenerator = inviteCodeGenerator;
         this.inviteBaseUrl = inviteBaseUrl;
     }
@@ -105,8 +119,19 @@ public class GroupService {
                 .map(group -> {
                     String ownerNickname = ownerNicknameById.get(group.getOwnerUserId());
                     long memberCount = membershipRepository.countByGroupIdAndLeftAtIsNull(group.getId());
-                    // currentCycle: CYCLE 도메인 구현 전까지 항상 null (진행 중 회차 없음)
-                    return GroupListItem.of(group, ownerNickname, memberCount, null);
+
+                    Optional<Cycle> inProgress =
+                            cycleRepository.findByGroupIdAndStatus(group.getId(), CycleStatus.IN_PROGRESS);
+                    CurrentCycleResponse currentCycle = inProgress
+                            .map(c -> new CurrentCycleResponse(c.getId(), c.getTopic(), c.getStartedAt()))
+                            .orElse(null);
+
+                    Cycle thumbnailCycle = inProgress.orElseGet(() -> cycleRepository
+                            .findTopByGroupIdAndStatusOrderByCycleNumberDesc(group.getId(), CycleStatus.DONE)
+                            .orElse(null));
+                    String thumbnailUrl = starterImageUrl(thumbnailCycle);
+
+                    return GroupListItem.of(group, ownerNickname, memberCount, thumbnailUrl, currentCycle);
                 })
                 .sorted(Comparator.comparing(GroupListItem::createdAt))
                 .toList();
@@ -238,6 +263,15 @@ public class GroupService {
         // TODO(NOTI): 합류 성공 시 기존 멤버 전원에게 member_join 알림 발송 (NOTI 도메인 구현 후 연결)
 
         return GroupJoinResponse.from(group);
+    }
+
+    private String starterImageUrl(Cycle cycle) {
+        if (cycle == null) {
+            return null;
+        }
+        return shotRepository.findByCycleIdAndType(cycle.getId(), ShotType.STARTER)
+                .map(Shot::getImageUrl)
+                .orElse(null);
     }
 
     private String generateUniqueInviteCode() {

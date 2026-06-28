@@ -9,16 +9,18 @@ public record GroupListItem(
         String name,
         String ownerNickname,
         long memberCount,
+        String thumbnailUrl,
         CurrentCycleResponse currentCycle,
         LocalDateTime createdAt
 ) {
-    public static GroupListItem of(Group group, String ownerNickname,
-                                   long memberCount, CurrentCycleResponse currentCycle) {
+    public static GroupListItem of(Group group, String ownerNickname, long memberCount,
+                                   String thumbnailUrl, CurrentCycleResponse currentCycle) {
         return new GroupListItem(
                 group.getId(),
                 group.getName(),
                 ownerNickname,
                 memberCount,
+                thumbnailUrl,
                 currentCycle,
                 group.getCreatedAt()
         );
