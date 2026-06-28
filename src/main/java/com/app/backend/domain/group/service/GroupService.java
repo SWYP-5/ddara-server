@@ -4,6 +4,7 @@ import com.app.backend.domain.cycle.entity.Cycle;
 import com.app.backend.domain.cycle.entity.CycleStatus;
 import com.app.backend.domain.cycle.repository.CycleRepository;
 import com.app.backend.domain.group.dto.CreateGroupRequest;
+import com.app.backend.domain.group.dto.CurrentCycleDetailResponse;
 import com.app.backend.domain.group.dto.CurrentCycleResponse;
 import com.app.backend.domain.group.dto.GroupCreateResponse;
 import com.app.backend.domain.group.dto.GroupDetailResponse;
@@ -46,6 +47,7 @@ public class GroupService {
     private static final int MAX_GROUPS_PER_USER = 20;
     private static final int MAX_MEMBERS_PER_GROUP = 8;
     private static final int INVITE_CODE_VALIDITY_HOURS = 24;
+    private static final int MIN_MEMBERS_TO_START_CYCLE = 3;
 
     private final GroupRepository groupRepository;
     private final MembershipRepository membershipRepository;
@@ -187,8 +189,15 @@ public class GroupService {
                 .map(membership -> MemberResponse.of(membership, usersById.get(membership.getUserId())))
                 .toList();
 
-        // CYCLE 도메인 구현 전까지 null
-        return GroupDetailResponse.of(group, memberResponses, null);
+        Optional<Cycle> inProgress =
+                cycleRepository.findByGroupIdAndStatus(groupId, CycleStatus.IN_PROGRESS);
+        CurrentCycleDetailResponse currentCycle = inProgress
+                .map(CurrentCycleDetailResponse::from)
+                .orElse(null);
+
+        boolean canStartCycle = inProgress.isEmpty() && members.size() >= MIN_MEMBERS_TO_START_CYCLE;
+
+        return GroupDetailResponse.of(group, memberResponses, currentCycle, canStartCycle);
     }
 
     @Transactional
