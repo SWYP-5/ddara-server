@@ -2,7 +2,6 @@ package com.app.backend.domain.user.dto;
 
 import com.app.backend.domain.user.entity.User;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 public record UserInfoResponse(
@@ -11,7 +10,6 @@ public record UserInfoResponse(
         String profileImageUrl,
         String provider,
         String email,
-        LocalDate birthDate,
         LocalDateTime createdAt
 ) {
     public static UserInfoResponse from(User user) {
@@ -21,7 +19,6 @@ public record UserInfoResponse(
                 user.getProfileImageUrl(),
                 user.getProvider().name(),
                 user.getEmail(),
-                user.getBirthDate(),
                 user.getCreatedAt()
         );
     }

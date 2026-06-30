@@ -48,7 +48,6 @@ class UserServiceTest {
         assertThat(response.nickname()).isEqualTo("민주");
         assertThat(response.email()).isEqualTo("minju@kakao.com");
         assertThat(response.provider()).isEqualTo("KAKAO");
-        assertThat(response.birthDate()).isEqualTo(LocalDate.of(2005, 3, 14));
         assertThat(response.profileImageUrl()).isNull();
     }
 
