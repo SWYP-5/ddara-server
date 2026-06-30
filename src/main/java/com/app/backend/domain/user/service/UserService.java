@@ -1,5 +1,6 @@
 package com.app.backend.domain.user.service;
 
+import com.app.backend.domain.user.dto.NotificationSettingsRequest;
 import com.app.backend.domain.user.dto.NotificationSettingsResponse;
 import com.app.backend.domain.user.dto.ProfileImageResponse;
 import com.app.backend.domain.user.dto.UserInfoResponse;
@@ -76,5 +77,25 @@ public class UserService {
         } catch (JsonProcessingException e) {
             return NotificationSettingsResponse.allOn();   // 깨진 값이면 기본값
         }
+    }
+
+    @Transactional
+    public NotificationSettingsResponse updateNotificationSettings(
+            Long userId, NotificationSettingsRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        try {
+            // 전체 교체 — 요청 묶음을 그대로 JSON으로 저장
+            user.updateNotificationPrefs(objectMapper.writeValueAsString(request));
+        } catch (JsonProcessingException e) {
+            throw new CustomException(ErrorCode.INVALID_INPUT);
+        }
+
+        return new NotificationSettingsResponse(
+                request.allowAll(),
+                new NotificationSettingsResponse.Activity(
+                        request.activity().followShot(), request.activity().deadlineVote()),
+                new NotificationSettingsResponse.Etc(request.etc().memberJoin()));
     }
 }
