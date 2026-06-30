@@ -17,4 +17,8 @@ public interface CycleRepository extends JpaRepository<Cycle, Long> {
     long countByGroupId(Long groupId);
 
     List<Cycle> findByStatusAndDeadlineAtBefore(CycleStatus status, LocalDateTime time);
+
+    Optional<Cycle> findTopByGroupIdAndStatusOrderByCycleNumberDesc(Long groupId, CycleStatus status);
+
+    List<Cycle> findByGroupIdAndStatusOrderByCycleNumberDesc(Long groupId, CycleStatus status);
 }

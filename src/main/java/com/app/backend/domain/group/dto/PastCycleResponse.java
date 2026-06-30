@@ -2,9 +2,11 @@ package com.app.backend.domain.group.dto;
 
 import java.time.LocalDateTime;
 
-public record CurrentCycleResponse(
+public record PastCycleResponse(
         Long cycleId,
         String topic,
-        LocalDateTime startedAt
+        String thumbnailUrl,
+        long participantCount,
+        LocalDateTime date
 ) {
 }
