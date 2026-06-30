@@ -5,12 +5,15 @@ import com.app.backend.domain.notification.dto.NotificationListResponse;
 import com.app.backend.domain.notification.entity.Notification;
 import com.app.backend.domain.notification.entity.NotificationType;
 import com.app.backend.domain.notification.repository.NotificationRepository;
+import com.app.backend.global.exception.CustomException;
+import com.app.backend.global.exception.ErrorCode;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.List;
@@ -46,6 +49,18 @@ public class NotificationService {
 
         long unreadCount = notificationRepository.countByUserIdAndReadAtIsNull(userId);
         return new NotificationListResponse(items, unreadCount);
+    }
+
+    @Transactional
+    public void markAsRead(Long userId, Long notificationId) {
+        Notification notification = notificationRepository.findById(notificationId)
+                .orElseThrow(() -> new CustomException(ErrorCode.NOTIFICATION_NOT_FOUND));
+
+        if (!notification.getUserId().equals(userId)) {
+            throw new CustomException(ErrorCode.NOTIFICATION_FORBIDDEN);   // 본인 알림만
+        }
+
+        notification.markAsRead(LocalDateTime.now());   // 이미 읽었으면 멱등(변화 없음)
     }
 
     private Collection<NotificationType> resolveTypes(String category) {
