@@ -1,5 +1,6 @@
 package com.app.backend.domain.user.service;
 
+import com.app.backend.domain.user.dto.NotificationSettingsResponse;
 import com.app.backend.domain.user.dto.ProfileImageResponse;
 import com.app.backend.domain.user.dto.UserInfoResponse;
 import com.app.backend.domain.user.entity.AuthProvider;
@@ -7,9 +8,10 @@ import com.app.backend.domain.user.entity.User;
 import com.app.backend.domain.user.repository.UserRepository;
 import com.app.backend.global.exception.CustomException;
 import com.app.backend.global.exception.ErrorCode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
@@ -33,8 +35,14 @@ class UserServiceTest {
     @Mock
     private ProfileImageStorage profileImageStorage;
 
-    @InjectMocks
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
     private UserService userService;
+
+    @BeforeEach
+    void setUp() {
+        userService = new UserService(userRepository, profileImageStorage, objectMapper);
+    }
 
     private User createUser() {
         return User.builder()
@@ -135,6 +143,52 @@ class UserServiceTest {
 
         // when & then
         assertThatThrownBy(() -> userService.updateProfileImage(999L, image))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_FOUND);
+    }
+
+    @Test
+    void 알림설정이_미설정이면_전부_true를_반환한다() {
+        // given: notification_prefs가 null인 유저
+        User user = createUser();
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
+
+        // when
+        NotificationSettingsResponse response = userService.getNotificationSettings(1L);
+
+        // then
+        assertThat(response.allowAll()).isTrue();
+        assertThat(response.activity().followShot()).isTrue();
+        assertThat(response.activity().deadlineVote()).isTrue();
+        assertThat(response.etc().memberJoin()).isTrue();
+    }
+
+    @Test
+    void 알림설정_조회시_저장된_값을_그대로_반환한다() {
+        // given: 일부 토글이 꺼진 설정이 저장돼 있음
+        User user = createUser();
+        user.updateNotificationPrefs(
+                "{\"allowAll\":true,\"activity\":{\"followShot\":false,\"deadlineVote\":true},\"etc\":{\"memberJoin\":false}}");
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
+
+        // when
+        NotificationSettingsResponse response = userService.getNotificationSettings(1L);
+
+        // then
+        assertThat(response.allowAll()).isTrue();
+        assertThat(response.activity().followShot()).isFalse();
+        assertThat(response.activity().deadlineVote()).isTrue();
+        assertThat(response.etc().memberJoin()).isFalse();
+    }
+
+    @Test
+    void 알림설정_조회시_유저가_없으면_USER_NOT_FOUND_예외를_던진다() {
+        // given
+        given(userRepository.findById(999L)).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> userService.getNotificationSettings(999L))
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_FOUND);
