@@ -66,4 +66,9 @@ public class User {
         this.birthDate = birthDate;
         this.profileImageUrl = profileImageUrl;
     }
+
+    /** 프로필 이미지 URL 변경. null이면 디폴트 아바타로 초기화. (U-02) */
+    public void updateProfileImage(String profileImageUrl) {
+        this.profileImageUrl = profileImageUrl;
+    }
 }

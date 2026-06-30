@@ -29,6 +29,10 @@ server:
 app:
   invite:
     base-url: ${INVITE_BASE_URL:https://ddara.app/invite/}
+  upload:
+    # 프로필 이미지를 저장할 서버 로컬 디렉터리 (EC2). DB엔 아래 base-url 기반 접근 URL만 저장.
+    dir: ${UPLOAD_DIR:./uploads}
+    base-url: ${UPLOAD_BASE_URL:http://localhost:8080}
 
 aws:
   s3:

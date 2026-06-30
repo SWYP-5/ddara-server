@@ -13,6 +13,9 @@ target/
 # Mac OS
 .DS_Store
 
+# 업로드된 프로필 이미지(로컬 저장소) — 코드/리포에 포함하지 않음
+uploads/
+
 # 환경변수 파일 (절대 커밋 금지)
 .env
 *.env
