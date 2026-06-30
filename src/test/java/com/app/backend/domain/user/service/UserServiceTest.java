@@ -1,5 +1,6 @@
 package com.app.backend.domain.user.service;
 
+import com.app.backend.domain.user.dto.NotificationSettingsRequest;
 import com.app.backend.domain.user.dto.NotificationSettingsResponse;
 import com.app.backend.domain.user.dto.ProfileImageResponse;
 import com.app.backend.domain.user.dto.UserInfoResponse;
@@ -189,6 +190,44 @@ class UserServiceTest {
 
         // when & then
         assertThatThrownBy(() -> userService.getNotificationSettings(999L))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_FOUND);
+    }
+
+    @Test
+    void 알림설정을_변경하면_전체교체로_저장하고_반환한다() {
+        // given
+        User user = createUser();
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
+        NotificationSettingsRequest request = new NotificationSettingsRequest(
+                true,
+                new NotificationSettingsRequest.Activity(false, true),
+                new NotificationSettingsRequest.Etc(true));
+
+        // when
+        NotificationSettingsResponse response = userService.updateNotificationSettings(1L, request);
+
+        // then: 응답이 변경값을 반영
+        assertThat(response.allowAll()).isTrue();
+        assertThat(response.activity().followShot()).isFalse();
+        assertThat(response.activity().deadlineVote()).isTrue();
+        assertThat(response.etc().memberJoin()).isTrue();
+        // then: 엔티티에 JSON으로 저장됨
+        assertThat(user.getNotificationPrefs()).contains("\"followShot\":false");
+    }
+
+    @Test
+    void 알림설정_변경시_유저가_없으면_USER_NOT_FOUND_예외를_던진다() {
+        // given
+        given(userRepository.findById(999L)).willReturn(Optional.empty());
+        NotificationSettingsRequest request = new NotificationSettingsRequest(
+                true,
+                new NotificationSettingsRequest.Activity(true, true),
+                new NotificationSettingsRequest.Etc(true));
+
+        // when & then
+        assertThatThrownBy(() -> userService.updateNotificationSettings(999L, request))
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_FOUND);

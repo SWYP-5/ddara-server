@@ -1,13 +1,16 @@
 package com.app.backend.domain.user.controller;
 
+import com.app.backend.domain.user.dto.NotificationSettingsRequest;
 import com.app.backend.domain.user.dto.NotificationSettingsResponse;
 import com.app.backend.domain.user.dto.ProfileImageResponse;
 import com.app.backend.domain.user.dto.UserInfoResponse;
 import com.app.backend.domain.user.service.UserService;
+import jakarta.validation.Valid;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
@@ -41,5 +44,13 @@ public class UserController {
     @GetMapping("/me/notification-settings")
     public NotificationSettingsResponse getNotificationSettings(@AuthenticationPrincipal Long userId) {
         return userService.getNotificationSettings(userId);
+    }
+
+    // 알림 설정 변경 (U-04) — 전체 교체
+    @PatchMapping("/me/notification-settings")
+    public NotificationSettingsResponse updateNotificationSettings(
+            @AuthenticationPrincipal Long userId,
+            @Valid @RequestBody NotificationSettingsRequest request) {
+        return userService.updateNotificationSettings(userId, request);
     }
 }
