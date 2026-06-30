@@ -60,6 +60,10 @@ public class User {
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
+    // 탈퇴 시각(soft delete). null이면 활성 사용자. (U-05)
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
     @Builder
     private User(AuthProvider provider, String providerId, String email,
                  String nickname, LocalDate birthDate, String profileImageUrl) {
@@ -79,5 +83,13 @@ public class User {
     /** 알림 설정(JSON 문자열) 전체 교체. (U-04) */
     public void updateNotificationPrefs(String notificationPrefs) {
         this.notificationPrefs = notificationPrefs;
+    }
+
+    /** 회원 탈퇴 — soft delete + 개인정보 익명화. (U-05) */
+    public void withdraw(LocalDateTime now) {
+        this.deletedAt = now;
+        this.nickname = "탈퇴한사용자";
+        this.email = null;
+        this.profileImageUrl = null;
     }
 }
