@@ -1,5 +1,6 @@
 package com.app.backend.domain.user.controller;
 
+import com.app.backend.domain.user.dto.NotificationSettingsResponse;
 import com.app.backend.domain.user.dto.ProfileImageResponse;
 import com.app.backend.domain.user.dto.UserInfoResponse;
 import com.app.backend.domain.user.service.UserService;
@@ -34,5 +35,11 @@ public class UserController {
             @AuthenticationPrincipal Long userId,
             @RequestPart(value = "image", required = false) MultipartFile image) {
         return userService.updateProfileImage(userId, image);
+    }
+
+    // 알림 설정 조회 (U-03)
+    @GetMapping("/me/notification-settings")
+    public NotificationSettingsResponse getNotificationSettings(@AuthenticationPrincipal Long userId) {
+        return userService.getNotificationSettings(userId);
     }
 }

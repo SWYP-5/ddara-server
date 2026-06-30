@@ -52,6 +52,10 @@ public class User {
     @Column(name = "profile_image_url", length = 500)
     private String profileImageUrl;
 
+    // 알림 설정(JSON). null이면 전체 on. (U-03/04)
+    @Column(name = "notification_prefs", columnDefinition = "json")
+    private String notificationPrefs;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -70,5 +74,10 @@ public class User {
     /** 프로필 이미지 URL 변경. null이면 디폴트 아바타로 초기화. (U-02) */
     public void updateProfileImage(String profileImageUrl) {
         this.profileImageUrl = profileImageUrl;
+    }
+
+    /** 알림 설정(JSON 문자열) 전체 교체. (U-04) */
+    public void updateNotificationPrefs(String notificationPrefs) {
+        this.notificationPrefs = notificationPrefs;
     }
 }

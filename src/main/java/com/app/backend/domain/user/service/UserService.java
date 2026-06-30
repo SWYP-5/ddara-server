@@ -1,11 +1,14 @@
 package com.app.backend.domain.user.service;
 
+import com.app.backend.domain.user.dto.NotificationSettingsResponse;
 import com.app.backend.domain.user.dto.ProfileImageResponse;
 import com.app.backend.domain.user.dto.UserInfoResponse;
 import com.app.backend.domain.user.entity.User;
 import com.app.backend.domain.user.repository.UserRepository;
 import com.app.backend.global.exception.CustomException;
 import com.app.backend.global.exception.ErrorCode;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -20,11 +23,14 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final ProfileImageStorage profileImageStorage;
+    private final ObjectMapper objectMapper;
 
     public UserService(UserRepository userRepository,
-                       ProfileImageStorage profileImageStorage) {
+                       ProfileImageStorage profileImageStorage,
+                       ObjectMapper objectMapper) {
         this.userRepository = userRepository;
         this.profileImageStorage = profileImageStorage;
+        this.objectMapper = objectMapper;
     }
 
     @Transactional(readOnly = true)
@@ -54,5 +60,21 @@ public class UserService {
         String imageUrl = profileImageStorage.store(image);
         user.updateProfileImage(imageUrl);
         return new ProfileImageResponse(imageUrl);
+    }
+
+    @Transactional(readOnly = true)
+    public NotificationSettingsResponse getNotificationSettings(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        String prefs = user.getNotificationPrefs();
+        if (prefs == null || prefs.isBlank()) {
+            return NotificationSettingsResponse.allOn();   // 미설정 = 전체 on
+        }
+        try {
+            return objectMapper.readValue(prefs, NotificationSettingsResponse.class);
+        } catch (JsonProcessingException e) {
+            return NotificationSettingsResponse.allOn();   // 깨진 값이면 기본값
+        }
     }
 }
