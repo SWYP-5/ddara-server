@@ -63,6 +63,12 @@ public class NotificationService {
         notification.markAsRead(LocalDateTime.now());   // 이미 읽었으면 멱등(변화 없음)
     }
 
+    @Transactional
+    public void markAllAsRead(Long userId) {
+        // 안읽음이 0개여도 정상 수행(멱등)
+        notificationRepository.markAllAsRead(userId, LocalDateTime.now());
+    }
+
     private Collection<NotificationType> resolveTypes(String category) {
         if ("activity".equalsIgnoreCase(category)) {
             return ACTIVITY_TYPES;

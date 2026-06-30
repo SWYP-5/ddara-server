@@ -39,4 +39,11 @@ public class NotificationController {
             @PathVariable Long notificationId) {
         notificationService.markAsRead(userId, notificationId);
     }
+
+    // 알림 전체 읽음 (N-03) — 멱등 204
+    @PatchMapping("/read-all")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void markAllAsRead(@AuthenticationPrincipal Long userId) {
+        notificationService.markAllAsRead(userId);
+    }
 }

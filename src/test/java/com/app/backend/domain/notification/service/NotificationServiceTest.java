@@ -27,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class NotificationServiceTest {
@@ -162,6 +163,15 @@ class NotificationServiceTest {
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.NOTIFICATION_NOT_FOUND);
+    }
+
+    @Test
+    void 전체읽음하면_내_안읽음을_일괄_읽음처리한다() {
+        // when
+        notificationService.markAllAsRead(1L);
+
+        // then: 내 안읽음 전부 now로 일괄 update 호출
+        verify(notificationRepository).markAllAsRead(eq(1L), any(LocalDateTime.class));
     }
 
     @Test
