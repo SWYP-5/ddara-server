@@ -1,5 +1,6 @@
 package com.app.backend.domain.user.service;
 
+import com.app.backend.domain.auth.repository.RefreshTokenRepository;
 import com.app.backend.domain.user.dto.NotificationSettingsRequest;
 import com.app.backend.domain.user.dto.NotificationSettingsResponse;
 import com.app.backend.domain.user.dto.ProfileImageResponse;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDateTime;
 import java.util.Set;
 
 @Service
@@ -25,13 +27,16 @@ public class UserService {
     private final UserRepository userRepository;
     private final ProfileImageStorage profileImageStorage;
     private final ObjectMapper objectMapper;
+    private final RefreshTokenRepository refreshTokenRepository;
 
     public UserService(UserRepository userRepository,
                        ProfileImageStorage profileImageStorage,
-                       ObjectMapper objectMapper) {
+                       ObjectMapper objectMapper,
+                       RefreshTokenRepository refreshTokenRepository) {
         this.userRepository = userRepository;
         this.profileImageStorage = profileImageStorage;
         this.objectMapper = objectMapper;
+        this.refreshTokenRepository = refreshTokenRepository;
     }
 
     @Transactional(readOnly = true)
@@ -97,5 +102,14 @@ public class UserService {
                 new NotificationSettingsResponse.Activity(
                         request.activity().followShot(), request.activity().deadlineVote()),
                 new NotificationSettingsResponse.Etc(request.etc().memberJoin()));
+    }
+
+    @Transactional
+    public void withdraw(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        user.withdraw(LocalDateTime.now());        // soft delete + 익명화
+        refreshTokenRepository.deleteByUserId(userId);   // refresh token 폐기
     }
 }

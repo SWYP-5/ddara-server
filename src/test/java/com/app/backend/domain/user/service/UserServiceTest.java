@@ -1,5 +1,6 @@
 package com.app.backend.domain.user.service;
 
+import com.app.backend.domain.auth.repository.RefreshTokenRepository;
 import com.app.backend.domain.user.dto.NotificationSettingsRequest;
 import com.app.backend.domain.user.dto.NotificationSettingsResponse;
 import com.app.backend.domain.user.dto.ProfileImageResponse;
@@ -36,13 +37,17 @@ class UserServiceTest {
     @Mock
     private ProfileImageStorage profileImageStorage;
 
+    @Mock
+    private RefreshTokenRepository refreshTokenRepository;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private UserService userService;
 
     @BeforeEach
     void setUp() {
-        userService = new UserService(userRepository, profileImageStorage, objectMapper);
+        userService = new UserService(
+                userRepository, profileImageStorage, objectMapper, refreshTokenRepository);
     }
 
     private User createUser() {
@@ -231,5 +236,37 @@ class UserServiceTest {
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_FOUND);
+    }
+
+    @Test
+    void 회원탈퇴하면_익명화하고_탈퇴시각을_기록하고_토큰을_폐기한다() {
+        // given: 프로필이 채워진 유저
+        User user = createUser();
+        user.updateProfileImage("http://localhost:8080/images/profiles/me.jpg");
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
+
+        // when
+        userService.withdraw(1L);
+
+        // then: soft delete + 익명화
+        assertThat(user.getDeletedAt()).isNotNull();
+        assertThat(user.getNickname()).isEqualTo("탈퇴한사용자");
+        assertThat(user.getEmail()).isNull();
+        assertThat(user.getProfileImageUrl()).isNull();
+        // then: refresh token 폐기
+        verify(refreshTokenRepository).deleteByUserId(1L);
+    }
+
+    @Test
+    void 탈퇴시_유저가_없으면_USER_NOT_FOUND_예외를_던진다() {
+        // given
+        given(userRepository.findById(999L)).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> userService.withdraw(999L))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_FOUND);
+        verify(refreshTokenRepository, never()).deleteByUserId(999L);
     }
 }

@@ -6,13 +6,16 @@ import com.app.backend.domain.user.dto.ProfileImageResponse;
 import com.app.backend.domain.user.dto.UserInfoResponse;
 import com.app.backend.domain.user.service.UserService;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -52,5 +55,12 @@ public class UserController {
             @AuthenticationPrincipal Long userId,
             @Valid @RequestBody NotificationSettingsRequest request) {
         return userService.updateNotificationSettings(userId, request);
+    }
+
+    // 회원 탈퇴 (U-05) — soft delete + 익명화 + 토큰 폐기
+    @DeleteMapping("/me")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void withdraw(@AuthenticationPrincipal Long userId) {
+        userService.withdraw(userId);
     }
 }
