@@ -46,7 +46,6 @@ public class GroupService {
     private static final int MAX_INVITE_CODE_ATTEMPTS = 10;
     private static final int MAX_GROUPS_PER_USER = 20;
     private static final int MAX_MEMBERS_PER_GROUP = 8;
-    private static final int INVITE_CODE_VALIDITY_HOURS = 24;
     private static final int MIN_MEMBERS_TO_START_CYCLE = 3;
 
     private final GroupRepository groupRepository;
@@ -81,7 +80,6 @@ public class GroupService {
                 .description(request.description())
                 .ownerUserId(userId)
                 .inviteCode(generateUniqueInviteCode())
-                .inviteCodeExpiresAt(LocalDateTime.now().plusHours(INVITE_CODE_VALIDITY_HOURS))
                 .build());
 
         membershipRepository.save(Membership.builder()
@@ -139,10 +137,6 @@ public class GroupService {
     public GroupPreviewResponse previewGroup(Long userId, String inviteCode) {
         Group group = groupRepository.findByInviteCode(inviteCode)
                 .orElseThrow(() -> new CustomException(ErrorCode.INVALID_INVITE_CODE));
-
-        if (group.isInviteCodeExpired(LocalDateTime.now())) {
-            throw new CustomException(ErrorCode.EXPIRED_INVITE_CODE);
-        }
 
         String ownerNickname = userRepository.findById(group.getOwnerUserId())
                 .map(User::getNickname)
@@ -229,10 +223,6 @@ public class GroupService {
     public GroupJoinResponse joinGroup(Long userId, String inviteCode) {
         Group group = groupRepository.findByInviteCode(inviteCode)
                 .orElseThrow(() -> new CustomException(ErrorCode.INVALID_INVITE_CODE));
-
-        if (group.isInviteCodeExpired(LocalDateTime.now())) {
-            throw new CustomException(ErrorCode.EXPIRED_INVITE_CODE);
-        }
 
         Membership existing =
                 membershipRepository.findByGroupIdAndUserId(group.getId(), userId).orElse(null);
