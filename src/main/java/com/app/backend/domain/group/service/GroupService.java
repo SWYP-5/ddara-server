@@ -8,7 +8,6 @@ import com.app.backend.domain.group.dto.CurrentCycleDetailResponse;
 import com.app.backend.domain.group.dto.CurrentCycleResponse;
 import com.app.backend.domain.group.dto.GroupCreateResponse;
 import com.app.backend.domain.group.dto.GroupDetailResponse;
-import com.app.backend.domain.group.dto.GroupInviteResponse;
 import com.app.backend.domain.group.dto.GroupJoinResponse;
 import com.app.backend.domain.group.dto.GroupListItem;
 import com.app.backend.domain.group.dto.GroupPreviewResponse;
@@ -27,7 +26,6 @@ import com.app.backend.domain.user.entity.User;
 import com.app.backend.domain.user.repository.UserRepository;
 import com.app.backend.global.exception.CustomException;
 import com.app.backend.global.exception.ErrorCode;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -48,7 +46,6 @@ public class GroupService {
     private static final int MAX_INVITE_CODE_ATTEMPTS = 10;
     private static final int MAX_GROUPS_PER_USER = 20;
     private static final int MAX_MEMBERS_PER_GROUP = 8;
-    private static final int INVITE_CODE_VALIDITY_HOURS = 24;
     private static final int MIN_MEMBERS_TO_START_CYCLE = 3;
 
     private final GroupRepository groupRepository;
@@ -57,22 +54,19 @@ public class GroupService {
     private final CycleRepository cycleRepository;
     private final ShotRepository shotRepository;
     private final InviteCodeGenerator inviteCodeGenerator;
-    private final String inviteBaseUrl;
 
     public GroupService(GroupRepository groupRepository,
                         MembershipRepository membershipRepository,
                         UserRepository userRepository,
                         CycleRepository cycleRepository,
                         ShotRepository shotRepository,
-                        InviteCodeGenerator inviteCodeGenerator,
-                        @Value("${app.invite.base-url}") String inviteBaseUrl) {
+                        InviteCodeGenerator inviteCodeGenerator) {
         this.groupRepository = groupRepository;
         this.membershipRepository = membershipRepository;
         this.userRepository = userRepository;
         this.cycleRepository = cycleRepository;
         this.shotRepository = shotRepository;
         this.inviteCodeGenerator = inviteCodeGenerator;
-        this.inviteBaseUrl = inviteBaseUrl;
     }
 
     @Transactional
@@ -86,7 +80,6 @@ public class GroupService {
                 .description(request.description())
                 .ownerUserId(userId)
                 .inviteCode(generateUniqueInviteCode())
-                .inviteCodeExpiresAt(LocalDateTime.now().plusHours(INVITE_CODE_VALIDITY_HOURS))
                 .build());
 
         membershipRepository.save(Membership.builder()
@@ -127,7 +120,7 @@ public class GroupService {
                     Optional<Cycle> inProgress =
                             cycleRepository.findByGroupIdAndStatus(group.getId(), CycleStatus.IN_PROGRESS);
                     CurrentCycleResponse currentCycle = inProgress
-                            .map(c -> new CurrentCycleResponse(c.getId(), c.getTopic(), c.getStartedAt()))
+                            .map(c -> new CurrentCycleResponse(c.getId(), c.getTopic(), c.getDeadlineAt()))
                             .orElse(null);
 
                     String thumbnailUrl = groupThumbnailUrl(group.getId());
@@ -145,10 +138,6 @@ public class GroupService {
         Group group = groupRepository.findByInviteCode(inviteCode)
                 .orElseThrow(() -> new CustomException(ErrorCode.INVALID_INVITE_CODE));
 
-        if (group.isInviteCodeExpired(LocalDateTime.now())) {
-            throw new CustomException(ErrorCode.EXPIRED_INVITE_CODE);
-        }
-
         String ownerNickname = userRepository.findById(group.getOwnerUserId())
                 .map(User::getNickname)
                 .orElse(null);
@@ -158,10 +147,15 @@ public class GroupService {
         boolean alreadyJoined =
                 membershipRepository.existsByGroupIdAndUserIdAndLeftAtIsNull(group.getId(), userId);
 
-        String thumbnailUrl = groupThumbnailUrl(group.getId());
+        List<String> memberAvatars = membershipRepository
+                .findTop2ByGroupIdAndLeftAtIsNullOrderByJoinedAtAsc(group.getId()).stream()
+                .map(m -> userRepository.findById(m.getUserId())
+                        .map(User::getProfileImageUrl)
+                        .orElse(null))
+                .toList();
 
         return GroupPreviewResponse.of(
-                group, ownerNickname, memberCount, MAX_MEMBERS_PER_GROUP, thumbnailUrl, alreadyJoined);
+                group, ownerNickname, memberCount, MAX_MEMBERS_PER_GROUP, memberAvatars, alreadyJoined);
     }
 
     @Transactional(readOnly = true)
@@ -192,7 +186,7 @@ public class GroupService {
         Optional<Cycle> inProgress =
                 cycleRepository.findByGroupIdAndStatus(groupId, CycleStatus.IN_PROGRESS);
         CurrentCycleDetailResponse currentCycle = inProgress
-                .map(CurrentCycleDetailResponse::from)
+                .map(c -> CurrentCycleDetailResponse.from(c, starterImageUrl(c)))
                 .orElse(null);
 
         boolean canStartCycle = inProgress.isEmpty() && members.size() >= MIN_MEMBERS_TO_START_CYCLE;
@@ -218,27 +212,6 @@ public class GroupService {
     }
 
     @Transactional
-    public GroupInviteResponse getInviteCode(Long userId, Long groupId) {
-        Group group = groupRepository.findById(groupId)
-                .orElseThrow(() -> new CustomException(ErrorCode.GROUP_NOT_FOUND));
-
-        if (!membershipRepository.existsByGroupIdAndUserIdAndLeftAtIsNull(groupId, userId)) {
-            throw new CustomException(ErrorCode.NOT_GROUP_MEMBER);
-        }
-
-        // 만료됐으면 새 코드로 재발급 + 만료시각 갱신 (유효하면 기존 코드 그대로)
-        LocalDateTime now = LocalDateTime.now();
-        if (group.isInviteCodeExpired(now)) {
-            group.reissueInviteCode(generateUniqueInviteCode(), now.plusHours(INVITE_CODE_VALIDITY_HOURS));
-        }
-
-        // 초대 링크 = 베이스 URL + 초대 코드
-        String inviteLink = inviteBaseUrl + group.getInviteCode();
-        return new GroupInviteResponse(
-                group.getId(), group.getInviteCode(), inviteLink, group.getInviteCodeExpiresAt());
-    }
-
-    @Transactional
     public void leaveGroup(Long userId, Long groupId) {
         if (!groupRepository.existsById(groupId)) {
             throw new CustomException(ErrorCode.GROUP_NOT_FOUND);
@@ -255,10 +228,6 @@ public class GroupService {
     public GroupJoinResponse joinGroup(Long userId, String inviteCode) {
         Group group = groupRepository.findByInviteCode(inviteCode)
                 .orElseThrow(() -> new CustomException(ErrorCode.INVALID_INVITE_CODE));
-
-        if (group.isInviteCodeExpired(LocalDateTime.now())) {
-            throw new CustomException(ErrorCode.EXPIRED_INVITE_CODE);
-        }
 
         Membership existing =
                 membershipRepository.findByGroupIdAndUserId(group.getId(), userId).orElse(null);

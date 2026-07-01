@@ -19,7 +19,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.time.LocalDate;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -56,7 +55,6 @@ class UserServiceTest {
                 .providerId("kakao-123")
                 .email("minju@kakao.com")
                 .nickname("민주")
-                .birthDate(LocalDate.of(2005, 3, 14))
                 .profileImageUrl(null)
                 .build();
     }

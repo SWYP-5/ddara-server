@@ -6,12 +6,9 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
-import java.time.LocalDate;
-
 public record SignupRequest(
         @NotNull AuthProvider provider,
         @NotBlank String accessToken,
-        @NotNull LocalDate birthDate,
         @AssertTrue(message = "약관에 동의해야 합니다.") boolean termsAgreed,
         @NotBlank @Size(max = 20) String nickname
 ) {
