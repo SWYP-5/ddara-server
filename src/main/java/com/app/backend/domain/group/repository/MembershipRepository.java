@@ -32,4 +32,7 @@ public interface MembershipRepository extends JpaRepository<Membership, Membersh
 
     // 모임 현재 멤버 중 같은 닉네임이 있는지 (중복 방지)
     boolean existsByGroupIdAndNicknameAndLeftAtIsNull(Long groupId, String nickname);
+
+    // 모임 완전 삭제 시 멤버십 일괄 삭제
+    void deleteByGroupId(Long groupId);
 }
