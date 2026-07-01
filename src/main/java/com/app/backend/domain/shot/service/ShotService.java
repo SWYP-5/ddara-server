@@ -99,6 +99,7 @@ public class ShotService {
 
         boolean viewerUploaded = shotsByUser.containsKey(userId);
         Long starterId = cycle.getStarterUserId();
+        boolean cycleDone = cycle.getStatus() == CycleStatus.DONE;
 
         List<ShotListResponse.MemberShot> memberShots = members.stream()
                 .map(membership -> {
@@ -115,7 +116,7 @@ public class ShotService {
                         imageUrl = null;
                         uploadedAt = null;
                     } else {
-                        boolean canSee = viewerUploaded || isStarter || memberId.equals(userId);
+                        boolean canSee = cycleDone || viewerUploaded || isStarter || memberId.equals(userId);
                         status = canSee ? "open" : "locked";
                         imageUrl = canSee ? shot.getImageUrl() : null;
                         uploadedAt = shot.getUploadedAt();
