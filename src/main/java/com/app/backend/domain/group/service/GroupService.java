@@ -181,7 +181,7 @@ public class GroupService {
         Optional<Cycle> inProgress =
                 cycleRepository.findByGroupIdAndStatus(groupId, CycleStatus.IN_PROGRESS);
         CurrentCycleDetailResponse currentCycle = inProgress
-                .map(CurrentCycleDetailResponse::from)
+                .map(c -> CurrentCycleDetailResponse.from(c, starterImageUrl(c)))
                 .orElse(null);
 
         boolean canStartCycle = inProgress.isEmpty() && members.size() >= MIN_MEMBERS_TO_START_CYCLE;
