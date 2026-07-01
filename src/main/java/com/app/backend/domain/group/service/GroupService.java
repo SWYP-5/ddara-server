@@ -120,7 +120,7 @@ public class GroupService {
                     Optional<Cycle> inProgress =
                             cycleRepository.findByGroupIdAndStatus(group.getId(), CycleStatus.IN_PROGRESS);
                     CurrentCycleResponse currentCycle = inProgress
-                            .map(c -> new CurrentCycleResponse(c.getId(), c.getTopic(), c.getStartedAt()))
+                            .map(c -> new CurrentCycleResponse(c.getId(), c.getTopic(), c.getDeadlineAt()))
                             .orElse(null);
 
                     String thumbnailUrl = groupThumbnailUrl(group.getId());

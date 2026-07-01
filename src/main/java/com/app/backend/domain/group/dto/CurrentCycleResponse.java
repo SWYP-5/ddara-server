@@ -5,6 +5,6 @@ import java.time.LocalDateTime;
 public record CurrentCycleResponse(
         Long cycleId,
         String topic,
-        LocalDateTime startedAt
+        LocalDateTime deadlineAt
 ) {
 }
