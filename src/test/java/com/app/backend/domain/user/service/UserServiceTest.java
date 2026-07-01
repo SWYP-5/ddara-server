@@ -266,4 +266,57 @@ class UserServiceTest {
                 .isEqualTo(ErrorCode.USER_NOT_FOUND);
         verify(refreshTokenRepository, never()).deleteByUserId(999L);
     }
+
+    @Test
+    void FCM_토큰을_등록하면_저장한다() {
+        // given
+        User user = createUser();
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
+
+        // when
+        userService.registerFcmToken(1L, "fcm-token-1");
+
+        // then
+        assertThat(user.getFcmToken()).isEqualTo("fcm-token-1");
+    }
+
+    @Test
+    void FCM_토큰_재등록시_기존_값을_덮어쓴다() {
+        // given: 이미 토큰이 등록된 유저
+        User user = createUser();
+        user.updateFcmToken("old-token");
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
+
+        // when
+        userService.registerFcmToken(1L, "new-token");
+
+        // then
+        assertThat(user.getFcmToken()).isEqualTo("new-token");
+    }
+
+    @Test
+    void FCM_토큰_등록시_유저가_없으면_USER_NOT_FOUND_예외를_던진다() {
+        // given
+        given(userRepository.findById(999L)).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> userService.registerFcmToken(999L, "fcm-token"))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_FOUND);
+    }
+
+    @Test
+    void FCM_토큰을_해제하면_null로_만든다() {
+        // given: 토큰이 등록된 유저 (로그아웃 상황)
+        User user = createUser();
+        user.updateFcmToken("some-token");
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
+
+        // when
+        userService.clearFcmToken(1L);
+
+        // then
+        assertThat(user.getFcmToken()).isNull();
+    }
 }

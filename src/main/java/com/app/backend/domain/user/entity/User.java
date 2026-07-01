@@ -52,6 +52,10 @@ public class User {
     @Column(name = "notification_prefs", columnDefinition = "json")
     private String notificationPrefs;
 
+    // FCM 푸시 토큰. 유저당 1개(덮어쓰기), 로그아웃/무효 토큰 시 null. (U-06)
+    @Column(name = "fcm_token", length = 255)
+    private String fcmToken;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -78,6 +82,16 @@ public class User {
     /** 알림 설정(JSON 문자열) 전체 교체. (U-04) */
     public void updateNotificationPrefs(String notificationPrefs) {
         this.notificationPrefs = notificationPrefs;
+    }
+
+    /** FCM 토큰 등록 — 유저당 1개, 기존 값 덮어쓰기. (U-06) */
+    public void updateFcmToken(String fcmToken) {
+        this.fcmToken = fcmToken;
+    }
+
+    /** FCM 토큰 제거 — 로그아웃/무효 토큰 시 null. (U-06) */
+    public void clearFcmToken() {
+        this.fcmToken = null;
     }
 
     /** 회원 탈퇴 — soft delete + 개인정보 익명화. (U-05) */

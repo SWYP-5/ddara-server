@@ -1,5 +1,6 @@
 package com.app.backend.domain.user.controller;
 
+import com.app.backend.domain.user.dto.FcmTokenRequest;
 import com.app.backend.domain.user.dto.NotificationSettingsRequest;
 import com.app.backend.domain.user.dto.NotificationSettingsResponse;
 import com.app.backend.domain.user.dto.ProfileImageResponse;
@@ -12,6 +13,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
@@ -62,5 +64,14 @@ public class UserController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void withdraw(@AuthenticationPrincipal Long userId) {
         userService.withdraw(userId);
+    }
+
+    // FCM 토큰 등록 (U-06) — 유저당 1개, 덮어쓰기
+    @PutMapping("/me/fcm-token")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void registerFcmToken(
+            @AuthenticationPrincipal Long userId,
+            @Valid @RequestBody FcmTokenRequest request) {
+        userService.registerFcmToken(userId, request.fcmToken());
     }
 }
