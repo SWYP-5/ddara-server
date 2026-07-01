@@ -21,4 +21,8 @@ public interface CycleRepository extends JpaRepository<Cycle, Long> {
     Optional<Cycle> findTopByGroupIdAndStatusOrderByCycleNumberDesc(Long groupId, CycleStatus status);
 
     List<Cycle> findByGroupIdAndStatusOrderByCycleNumberDesc(Long groupId, CycleStatus status);
+
+    List<Cycle> findByGroupId(Long groupId);
+
+    void deleteByGroupId(Long groupId);
 }

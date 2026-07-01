@@ -48,6 +48,7 @@ public class GroupService {
     private static final int MAX_GROUPS_PER_USER = 20;
     private static final int MAX_MEMBERS_PER_GROUP = 8;
     private static final int MIN_MEMBERS_TO_START_CYCLE = 3;
+    private static final int GROUP_RETENTION_DAYS = 5;
 
     private final GroupRepository groupRepository;
     private final MembershipRepository membershipRepository;
@@ -133,7 +134,7 @@ public class GroupService {
 
     @Transactional(readOnly = true)
     public GroupPreviewResponse previewGroup(Long userId, String inviteCode) {
-        Group group = groupRepository.findByInviteCode(inviteCode)
+        Group group = groupRepository.findByInviteCodeAndDeletedAtIsNull(inviteCode)
                 .orElseThrow(() -> new CustomException(ErrorCode.INVALID_INVITE_CODE));
 
         String ownerNickname = membershipRepository
@@ -225,6 +226,12 @@ public class GroupService {
                 .orElseThrow(() -> new CustomException(ErrorCode.NOT_GROUP_MEMBER));
 
         membership.leave(LocalDateTime.now());
+        
+        //모임 자동 삭제
+        if (membershipRepository.countByGroupIdAndLeftAtIsNull(groupId) == 0) {
+            groupRepository.findById(groupId)
+                    .ifPresent(group -> group.softDelete(LocalDateTime.now()));
+        }
     }
 
     @Transactional
@@ -248,7 +255,7 @@ public class GroupService {
 
     @Transactional
     public GroupJoinResponse joinGroup(Long userId, String inviteCode, String nickname) {
-        Group group = groupRepository.findByInviteCode(inviteCode)
+        Group group = groupRepository.findByInviteCodeAndDeletedAtIsNull(inviteCode)
                 .orElseThrow(() -> new CustomException(ErrorCode.INVALID_INVITE_CODE));
 
         Membership existing =
@@ -285,6 +292,25 @@ public class GroupService {
         // TODO(NOTI): 합류 성공 시 기존 멤버 전원에게 member_join 알림 발송 (NOTI 도메인 구현 후 연결)
 
         return GroupJoinResponse.from(group);
+    }
+
+    @Transactional
+    public int purgeDeletedGroups() {
+        List<Group> expired = groupRepository.findByDeletedAtBefore(
+                LocalDateTime.now().minusDays(GROUP_RETENTION_DAYS));
+        for (Group group : expired) {
+            Long groupId = group.getId();
+            List<Long> cycleIds = cycleRepository.findByGroupId(groupId).stream()
+                    .map(Cycle::getId)
+                    .toList();
+            if (!cycleIds.isEmpty()) {
+                shotRepository.deleteByCycleIdIn(cycleIds);
+            }
+            cycleRepository.deleteByGroupId(groupId);
+            membershipRepository.deleteByGroupId(groupId);
+            groupRepository.delete(group);
+        }
+        return expired.size();
     }
 
     private String groupThumbnailUrl(Long groupId) {

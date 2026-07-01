@@ -40,11 +40,19 @@ public class Group {
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
     @Builder
     private Group(String name, String description, Long ownerUserId, String inviteCode) {
         this.name = name;
         this.description = description;
         this.ownerUserId = ownerUserId;
         this.inviteCode = inviteCode;
+    }
+
+    // 전원 나가기 시 소프트 삭제 (5일 후 스케줄러가 완전 삭제)
+    public void softDelete(LocalDateTime now) {
+        this.deletedAt = now;
     }
 }
