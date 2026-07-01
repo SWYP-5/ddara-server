@@ -10,6 +10,7 @@ import com.app.backend.domain.group.dto.GroupCreateResponse;
 import com.app.backend.domain.group.dto.GroupDetailResponse;
 import com.app.backend.domain.group.dto.GroupJoinResponse;
 import com.app.backend.domain.group.dto.GroupListItem;
+import com.app.backend.domain.group.dto.GroupNicknameResponse;
 import com.app.backend.domain.group.dto.GroupPreviewResponse;
 import com.app.backend.domain.group.dto.MemberResponse;
 import com.app.backend.domain.group.dto.MyGroupsResponse;
@@ -224,6 +225,25 @@ public class GroupService {
                 .orElseThrow(() -> new CustomException(ErrorCode.NOT_GROUP_MEMBER));
 
         membership.leave(LocalDateTime.now());
+    }
+
+    @Transactional
+    public GroupNicknameResponse updateMyGroupNickname(Long userId, Long groupId, String nickname) {
+        if (!groupRepository.existsById(groupId)) {
+            throw new CustomException(ErrorCode.GROUP_NOT_FOUND);
+        }
+
+        Membership membership = membershipRepository.findByGroupIdAndUserId(groupId, userId)
+                .filter(Membership::isActive)
+                .orElseThrow(() -> new CustomException(ErrorCode.NOT_GROUP_MEMBER));
+        
+        if (!membership.getNickname().equals(nickname)
+                && membershipRepository.existsByGroupIdAndNicknameAndLeftAtIsNull(groupId, nickname)) {
+            throw new CustomException(ErrorCode.DUPLICATE_GROUP_NICKNAME);
+        }
+
+        membership.updateNickname(nickname);
+        return new GroupNicknameResponse(groupId, nickname);
     }
 
     @Transactional

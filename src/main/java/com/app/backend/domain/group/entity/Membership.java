@@ -66,4 +66,9 @@ public class Membership {
         this.nickname = nickname;
         this.leftAt = null;
     }
+
+    // 모임 내 닉네임 변경
+    public void updateNickname(String nickname) {
+        this.nickname = nickname;
+    }
 }
