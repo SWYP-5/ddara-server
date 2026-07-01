@@ -56,7 +56,7 @@ public class GroupController {
     @PostMapping("/join")
     public GroupJoinResponse joinGroup(@AuthenticationPrincipal Long userId,
                                        @Valid @RequestBody JoinGroupRequest request) {
-        return groupService.joinGroup(userId, request.inviteCode());
+        return groupService.joinGroup(userId, request.inviteCode(), request.nickname());
     }
 
     // 모임 상세

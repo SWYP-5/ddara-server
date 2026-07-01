@@ -24,6 +24,7 @@ public enum ErrorCode {
     INVALID_INVITE_CODE(HttpStatus.NOT_FOUND, "유효하지 않은 초대 코드입니다."),
     ALREADY_JOINED_GROUP(HttpStatus.CONFLICT, "이미 참여한 모임입니다."),
     GROUP_FULL(HttpStatus.CONFLICT, "모임 정원이 가득 찼습니다."),
+    DUPLICATE_GROUP_NICKNAME(HttpStatus.CONFLICT, "이미 사용 중인 모임 닉네임입니다."),
     GROUP_NOT_FOUND(HttpStatus.NOT_FOUND, "모임을 찾을 수 없습니다."),
     NOT_GROUP_MEMBER(HttpStatus.FORBIDDEN, "해당 모임의 멤버가 아닙니다."),
 

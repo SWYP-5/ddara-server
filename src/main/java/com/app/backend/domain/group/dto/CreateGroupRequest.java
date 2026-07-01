@@ -9,6 +9,10 @@ public record CreateGroupRequest(
         String name,
 
         @Size(max = 100, message = "모임 설명은 최대 100자입니다.")
-        String description
+        String description,
+
+        @NotBlank(message = "모임 닉네임은 필수입니다.")
+        @Size(min = 2, max = 10, message = "모임 닉네임은 2~10자입니다.")
+        String nickname
 ) {
 }

@@ -85,6 +85,7 @@ public class GroupService {
         membershipRepository.save(Membership.builder()
                 .groupId(group.getId())
                 .userId(userId)
+                .nickname(request.nickname())
                 .role(MembershipRole.OWNER)
                 .joinedAt(LocalDateTime.now())
                 .build());
@@ -225,7 +226,7 @@ public class GroupService {
     }
 
     @Transactional
-    public GroupJoinResponse joinGroup(Long userId, String inviteCode) {
+    public GroupJoinResponse joinGroup(Long userId, String inviteCode, String nickname) {
         Group group = groupRepository.findByInviteCode(inviteCode)
                 .orElseThrow(() -> new CustomException(ErrorCode.INVALID_INVITE_CODE));
 
@@ -244,12 +245,17 @@ public class GroupService {
             throw new CustomException(ErrorCode.GROUP_LIMIT_EXCEEDED);
         }
 
+        if (membershipRepository.existsByGroupIdAndNicknameAndLeftAtIsNull(group.getId(), nickname)) {
+            throw new CustomException(ErrorCode.DUPLICATE_GROUP_NICKNAME);
+        }
+
         if (existing != null) {
-            existing.rejoin(LocalDateTime.now());
+            existing.rejoin(LocalDateTime.now(), nickname);
         } else {
             membershipRepository.save(Membership.builder()
                     .groupId(group.getId())
                     .userId(userId)
+                    .nickname(nickname)
                     .role(MembershipRole.MEMBER)
                     .joinedAt(LocalDateTime.now())
                     .build());
