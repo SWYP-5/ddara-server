@@ -68,9 +68,8 @@ class UserServiceTest {
         // when
         UserInfoResponse response = userService.getMyInfo(1L);
 
-        // then
+        // then: email은 응답에서 제외됨 (U-01)
         assertThat(response.name()).isEqualTo("민주");
-        assertThat(response.email()).isEqualTo("minju@kakao.com");
         assertThat(response.provider()).isEqualTo("KAKAO");
         assertThat(response.profileImageUrl()).isNull();
     }

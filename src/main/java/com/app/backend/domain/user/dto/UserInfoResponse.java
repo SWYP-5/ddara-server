@@ -9,7 +9,6 @@ public record UserInfoResponse(
         String name,
         String profileImageUrl,
         String provider,
-        String email,
         LocalDateTime createdAt
 ) {
     public static UserInfoResponse from(User user) {
@@ -18,7 +17,6 @@ public record UserInfoResponse(
                 user.getName(),
                 user.getProfileImageUrl(),
                 user.getProvider().name(),
-                user.getEmail(),
                 user.getCreatedAt()
         );
     }
