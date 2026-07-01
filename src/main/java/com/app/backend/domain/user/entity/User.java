@@ -15,7 +15,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -46,9 +45,6 @@ public class User {
     @Column(nullable = false)
     private String nickname;
 
-    @Column(name = "birth_date", nullable = false)
-    private LocalDate birthDate;
-
     @Column(name = "profile_image_url", length = 500)
     private String profileImageUrl;
 
@@ -66,12 +62,11 @@ public class User {
 
     @Builder
     private User(AuthProvider provider, String providerId, String email,
-                 String nickname, LocalDate birthDate, String profileImageUrl) {
+                 String nickname, String profileImageUrl) {
         this.provider = provider;
         this.providerId = providerId;
         this.email = email;
         this.nickname = nickname;
-        this.birthDate = birthDate;
         this.profileImageUrl = profileImageUrl;
     }
 

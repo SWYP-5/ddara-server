@@ -18,15 +18,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.Period;
 import java.util.Optional;
 
 @Service
 public class AuthService {
-
-    private static final int MIN_AGE = 14;
 
     private final OAuthClientResolver oAuthClientResolver;
     private final UserRepository userRepository;
@@ -70,15 +66,10 @@ public class AuthService {
             return issueTokens(found.get(), true);
         }
 
-        if (isUnderMinAge(request.birthDate())) {
-            throw new CustomException(ErrorCode.UNDER_MIN_AGE);
-        }
-
         User user = userRepository.save(User.builder()
                 .provider(request.provider())
                 .providerId(userInfo.providerId())
                 .nickname(request.nickname())
-                .birthDate(request.birthDate())
                 .build());
 
         return issueTokens(user, true);
@@ -115,9 +106,5 @@ public class AuthService {
         return isNewUser
                 ? AuthResponse.signup(accessToken, refreshToken, user)
                 : AuthResponse.login(accessToken, refreshToken, user);
-    }
-
-    private boolean isUnderMinAge(LocalDate birthDate) {
-        return Period.between(birthDate, LocalDate.now()).getYears() < MIN_AGE;
     }
 }
