@@ -3,6 +3,7 @@ package com.app.backend.domain.auth.oauth;
 import com.app.backend.domain.user.entity.AuthProvider;
 import com.app.backend.global.exception.CustomException;
 import com.app.backend.global.exception.ErrorCode;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -41,9 +42,17 @@ public class KakaoOAuthClient implements OAuthClient {
             throw new CustomException(ErrorCode.INVALID_OAUTH_TOKEN);
         }
 
-        return new OAuthUserInfo(String.valueOf(response.id()));
+        String nickname = response.kakaoAccount() != null && response.kakaoAccount().profile() != null
+                ? response.kakaoAccount().profile().nickname()
+                : null;
+        return new OAuthUserInfo(String.valueOf(response.id()), nickname);
     }
 
-    private record KakaoUserResponse(Long id) {
+    private record KakaoUserResponse(Long id, @JsonProperty("kakao_account") KakaoAccount kakaoAccount) {
+        private record KakaoAccount(Profile profile) {
+        }
+
+        private record Profile(String nickname) {
+        }
     }
 }

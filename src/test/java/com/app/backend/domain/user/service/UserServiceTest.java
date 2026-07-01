@@ -54,7 +54,7 @@ class UserServiceTest {
                 .provider(AuthProvider.KAKAO)
                 .providerId("kakao-123")
                 .email("minju@kakao.com")
-                .nickname("민주")
+                .name("민주")
                 .profileImageUrl(null)
                 .build();
     }
@@ -69,7 +69,7 @@ class UserServiceTest {
         UserInfoResponse response = userService.getMyInfo(1L);
 
         // then
-        assertThat(response.nickname()).isEqualTo("민주");
+        assertThat(response.name()).isEqualTo("민주");
         assertThat(response.email()).isEqualTo("minju@kakao.com");
         assertThat(response.provider()).isEqualTo("KAKAO");
         assertThat(response.profileImageUrl()).isNull();
@@ -248,7 +248,7 @@ class UserServiceTest {
 
         // then: soft delete + 익명화
         assertThat(user.getDeletedAt()).isNotNull();
-        assertThat(user.getNickname()).isEqualTo("탈퇴한사용자");
+        assertThat(user.getName()).isEqualTo("탈퇴한사용자");
         assertThat(user.getEmail()).isNull();
         assertThat(user.getProfileImageUrl()).isNull();
         // then: refresh token 폐기

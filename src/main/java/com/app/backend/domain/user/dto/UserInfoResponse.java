@@ -6,7 +6,7 @@ import java.time.LocalDateTime;
 
 public record UserInfoResponse(
         Long id,
-        String nickname,
+        String name,
         String profileImageUrl,
         String provider,
         String email,
@@ -15,7 +15,7 @@ public record UserInfoResponse(
     public static UserInfoResponse from(User user) {
         return new UserInfoResponse(
                 user.getId(),
-                user.getNickname(),
+                user.getName(),
                 user.getProfileImageUrl(),
                 user.getProvider().name(),
                 user.getEmail(),

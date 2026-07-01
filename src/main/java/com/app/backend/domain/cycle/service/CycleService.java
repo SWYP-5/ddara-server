@@ -95,7 +95,7 @@ public class CycleService {
         return cycleRepository.findByGroupIdAndStatus(groupId, CycleStatus.IN_PROGRESS)
                 .map(cycle -> {
                     String starterNickname = userRepository.findById(cycle.getStarterUserId())
-                            .map(User::getNickname)
+                            .map(User::getName)
                             .orElse(null);
                     String starterImageUrl = shotRepository
                             .findByCycleIdAndType(cycle.getId(), ShotType.STARTER)

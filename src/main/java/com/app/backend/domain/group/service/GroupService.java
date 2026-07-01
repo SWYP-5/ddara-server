@@ -108,7 +108,7 @@ public class GroupService {
                 .distinct()
                 .toList();
         Map<Long, String> ownerNicknameById = userRepository.findAllById(ownerIds).stream()
-                .collect(Collectors.toMap(User::getId, User::getNickname));
+                .collect(Collectors.toMap(User::getId, User::getName));
 
         List<GroupListItem> items = memberships.stream()
                 .map(membership -> groupsById.get(membership.getGroupId()))
@@ -139,7 +139,7 @@ public class GroupService {
                 .orElseThrow(() -> new CustomException(ErrorCode.INVALID_INVITE_CODE));
 
         String ownerNickname = userRepository.findById(group.getOwnerUserId())
-                .map(User::getNickname)
+                .map(User::getName)
                 .orElse(null);
 
         long memberCount = membershipRepository.countByGroupIdAndLeftAtIsNull(group.getId());
@@ -178,7 +178,7 @@ public class GroupService {
                         .comparing((Membership m) -> !m.getUserId().equals(userId))
                         .thenComparing(m -> {
                             User user = usersById.get(m.getUserId());
-                            return user != null ? user.getNickname() : "";
+                            return user != null ? user.getName() : "";
                         }, collator))
                 .map(membership -> MemberResponse.of(membership, usersById.get(membership.getUserId())))
                 .toList();
