@@ -147,10 +147,15 @@ public class GroupService {
         boolean alreadyJoined =
                 membershipRepository.existsByGroupIdAndUserIdAndLeftAtIsNull(group.getId(), userId);
 
-        String thumbnailUrl = groupThumbnailUrl(group.getId());
+        List<String> memberAvatars = membershipRepository
+                .findTop2ByGroupIdAndLeftAtIsNullOrderByJoinedAtAsc(group.getId()).stream()
+                .map(m -> userRepository.findById(m.getUserId())
+                        .map(User::getProfileImageUrl)
+                        .orElse(null))
+                .toList();
 
         return GroupPreviewResponse.of(
-                group, ownerNickname, memberCount, MAX_MEMBERS_PER_GROUP, thumbnailUrl, alreadyJoined);
+                group, ownerNickname, memberCount, MAX_MEMBERS_PER_GROUP, memberAvatars, alreadyJoined);
     }
 
     @Transactional(readOnly = true)
