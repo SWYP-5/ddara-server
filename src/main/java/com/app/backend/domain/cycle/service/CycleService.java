@@ -6,13 +6,12 @@ import com.app.backend.domain.cycle.dto.CycleCreateResponse;
 import com.app.backend.domain.cycle.entity.Cycle;
 import com.app.backend.domain.cycle.entity.CycleStatus;
 import com.app.backend.domain.cycle.repository.CycleRepository;
+import com.app.backend.domain.group.entity.Membership;
 import com.app.backend.domain.group.repository.GroupRepository;
 import com.app.backend.domain.group.repository.MembershipRepository;
 import com.app.backend.domain.shot.entity.Shot;
 import com.app.backend.domain.shot.entity.ShotType;
 import com.app.backend.domain.shot.repository.ShotRepository;
-import com.app.backend.domain.user.entity.User;
-import com.app.backend.domain.user.repository.UserRepository;
 import com.app.backend.global.exception.CustomException;
 import com.app.backend.global.exception.ErrorCode;
 import org.springframework.stereotype.Service;
@@ -31,18 +30,15 @@ public class CycleService {
     private final MembershipRepository membershipRepository;
     private final CycleRepository cycleRepository;
     private final ShotRepository shotRepository;
-    private final UserRepository userRepository;
 
     public CycleService(GroupRepository groupRepository,
                         MembershipRepository membershipRepository,
                         CycleRepository cycleRepository,
-                        ShotRepository shotRepository,
-                        UserRepository userRepository) {
+                        ShotRepository shotRepository) {
         this.groupRepository = groupRepository;
         this.membershipRepository = membershipRepository;
         this.cycleRepository = cycleRepository;
         this.shotRepository = shotRepository;
-        this.userRepository = userRepository;
     }
 
     @Transactional
@@ -94,8 +90,9 @@ public class CycleService {
 
         return cycleRepository.findByGroupIdAndStatus(groupId, CycleStatus.IN_PROGRESS)
                 .map(cycle -> {
-                    String starterNickname = userRepository.findById(cycle.getStarterUserId())
-                            .map(User::getName)
+                    String starterNickname = membershipRepository
+                            .findByGroupIdAndUserId(groupId, cycle.getStarterUserId())
+                            .map(Membership::getNickname)
                             .orElse(null);
                     String starterImageUrl = shotRepository
                             .findByCycleIdAndType(cycle.getId(), ShotType.STARTER)

@@ -10,17 +10,19 @@ public record CurrentCycleDetailResponse(
         Integer cycleNumber,
         String topic,
         Long starterUserId,
+        String starterNickname,
         String starterImageUrl,
         CycleStatus status,
         LocalDateTime startedAt,
         LocalDateTime deadlineAt
 ) {
-    public static CurrentCycleDetailResponse from(Cycle cycle, String starterImageUrl) {
+    public static CurrentCycleDetailResponse from(Cycle cycle, String starterNickname, String starterImageUrl) {
         return new CurrentCycleDetailResponse(
                 cycle.getId(),
                 cycle.getCycleNumber(),
                 cycle.getTopic(),
                 cycle.getStarterUserId(),
+                starterNickname,
                 starterImageUrl,
                 cycle.getStatus(),
                 cycle.getStartedAt(),

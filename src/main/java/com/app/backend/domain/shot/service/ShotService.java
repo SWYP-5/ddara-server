@@ -122,7 +122,7 @@ public class ShotService {
                     }
                     return new ShotListResponse.MemberShot(
                             memberId,
-                            user != null ? user.getName() : null,
+                            membership.getNickname(),
                             user != null ? user.getProfileImageUrl() : null,
                             isStarter,
                             status,

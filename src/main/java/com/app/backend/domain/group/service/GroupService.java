@@ -104,18 +104,14 @@ public class GroupService {
         Map<Long, Group> groupsById = groupRepository.findAllById(groupIds).stream()
                 .collect(Collectors.toMap(Group::getId, Function.identity()));
 
-        List<Long> ownerIds = groupsById.values().stream()
-                .map(Group::getOwnerUserId)
-                .distinct()
-                .toList();
-        Map<Long, String> ownerNicknameById = userRepository.findAllById(ownerIds).stream()
-                .collect(Collectors.toMap(User::getId, User::getName));
-
         List<GroupListItem> items = memberships.stream()
                 .map(membership -> groupsById.get(membership.getGroupId()))
                 .filter(group -> group != null)
                 .map(group -> {
-                    String ownerNickname = ownerNicknameById.get(group.getOwnerUserId());
+                    String ownerNickname = membershipRepository
+                            .findByGroupIdAndUserId(group.getId(), group.getOwnerUserId())
+                            .map(Membership::getNickname)
+                            .orElse(null);
                     long memberCount = membershipRepository.countByGroupIdAndLeftAtIsNull(group.getId());
 
                     Optional<Cycle> inProgress =
@@ -139,8 +135,9 @@ public class GroupService {
         Group group = groupRepository.findByInviteCode(inviteCode)
                 .orElseThrow(() -> new CustomException(ErrorCode.INVALID_INVITE_CODE));
 
-        String ownerNickname = userRepository.findById(group.getOwnerUserId())
-                .map(User::getName)
+        String ownerNickname = membershipRepository
+                .findByGroupIdAndUserId(group.getId(), group.getOwnerUserId())
+                .map(Membership::getNickname)
                 .orElse(null);
 
         long memberCount = membershipRepository.countByGroupIdAndLeftAtIsNull(group.getId());
@@ -177,17 +174,21 @@ public class GroupService {
         List<MemberResponse> memberResponses = members.stream()
                 .sorted(Comparator
                         .comparing((Membership m) -> !m.getUserId().equals(userId))
-                        .thenComparing(m -> {
-                            User user = usersById.get(m.getUserId());
-                            return user != null ? user.getName() : "";
-                        }, collator))
+                        .thenComparing(Membership::getNickname, collator))
                 .map(membership -> MemberResponse.of(membership, usersById.get(membership.getUserId())))
                 .toList();
 
         Optional<Cycle> inProgress =
                 cycleRepository.findByGroupIdAndStatus(groupId, CycleStatus.IN_PROGRESS);
         CurrentCycleDetailResponse currentCycle = inProgress
-                .map(c -> CurrentCycleDetailResponse.from(c, starterImageUrl(c)))
+                .map(c -> {
+                    String starterNickname = members.stream()
+                            .filter(m -> m.getUserId().equals(c.getStarterUserId()))
+                            .findFirst()
+                            .map(Membership::getNickname)
+                            .orElse(null);
+                    return CurrentCycleDetailResponse.from(c, starterNickname, starterImageUrl(c));
+                })
                 .orElse(null);
 
         boolean canStartCycle = inProgress.isEmpty() && members.size() >= MIN_MEMBERS_TO_START_CYCLE;

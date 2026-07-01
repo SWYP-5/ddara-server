@@ -13,7 +13,7 @@ public record MemberResponse(
     public static MemberResponse of(Membership membership, User user) {
         return new MemberResponse(
                 user.getId(),
-                user.getName(),
+                membership.getNickname(),
                 user.getProfileImageUrl(),
                 membership.getRole()
         );
