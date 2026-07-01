@@ -10,6 +10,7 @@ import com.app.backend.domain.group.dto.GroupCreateResponse;
 import com.app.backend.domain.group.dto.GroupDetailResponse;
 import com.app.backend.domain.group.dto.GroupJoinResponse;
 import com.app.backend.domain.group.dto.GroupListItem;
+import com.app.backend.domain.group.dto.GroupNicknameResponse;
 import com.app.backend.domain.group.dto.GroupPreviewResponse;
 import com.app.backend.domain.group.dto.MemberResponse;
 import com.app.backend.domain.group.dto.MyGroupsResponse;
@@ -85,6 +86,7 @@ public class GroupService {
         membershipRepository.save(Membership.builder()
                 .groupId(group.getId())
                 .userId(userId)
+                .nickname(request.nickname())
                 .role(MembershipRole.OWNER)
                 .joinedAt(LocalDateTime.now())
                 .build());
@@ -103,18 +105,14 @@ public class GroupService {
         Map<Long, Group> groupsById = groupRepository.findAllById(groupIds).stream()
                 .collect(Collectors.toMap(Group::getId, Function.identity()));
 
-        List<Long> ownerIds = groupsById.values().stream()
-                .map(Group::getOwnerUserId)
-                .distinct()
-                .toList();
-        Map<Long, String> ownerNicknameById = userRepository.findAllById(ownerIds).stream()
-                .collect(Collectors.toMap(User::getId, User::getNickname));
-
         List<GroupListItem> items = memberships.stream()
                 .map(membership -> groupsById.get(membership.getGroupId()))
                 .filter(group -> group != null)
                 .map(group -> {
-                    String ownerNickname = ownerNicknameById.get(group.getOwnerUserId());
+                    String ownerNickname = membershipRepository
+                            .findByGroupIdAndUserId(group.getId(), group.getOwnerUserId())
+                            .map(Membership::getNickname)
+                            .orElse(null);
                     long memberCount = membershipRepository.countByGroupIdAndLeftAtIsNull(group.getId());
 
                     Optional<Cycle> inProgress =
@@ -138,8 +136,9 @@ public class GroupService {
         Group group = groupRepository.findByInviteCode(inviteCode)
                 .orElseThrow(() -> new CustomException(ErrorCode.INVALID_INVITE_CODE));
 
-        String ownerNickname = userRepository.findById(group.getOwnerUserId())
-                .map(User::getNickname)
+        String ownerNickname = membershipRepository
+                .findByGroupIdAndUserId(group.getId(), group.getOwnerUserId())
+                .map(Membership::getNickname)
                 .orElse(null);
 
         long memberCount = membershipRepository.countByGroupIdAndLeftAtIsNull(group.getId());
@@ -176,17 +175,21 @@ public class GroupService {
         List<MemberResponse> memberResponses = members.stream()
                 .sorted(Comparator
                         .comparing((Membership m) -> !m.getUserId().equals(userId))
-                        .thenComparing(m -> {
-                            User user = usersById.get(m.getUserId());
-                            return user != null ? user.getNickname() : "";
-                        }, collator))
+                        .thenComparing(Membership::getNickname, collator))
                 .map(membership -> MemberResponse.of(membership, usersById.get(membership.getUserId())))
                 .toList();
 
         Optional<Cycle> inProgress =
                 cycleRepository.findByGroupIdAndStatus(groupId, CycleStatus.IN_PROGRESS);
         CurrentCycleDetailResponse currentCycle = inProgress
-                .map(c -> CurrentCycleDetailResponse.from(c, starterImageUrl(c)))
+                .map(c -> {
+                    String starterNickname = members.stream()
+                            .filter(m -> m.getUserId().equals(c.getStarterUserId()))
+                            .findFirst()
+                            .map(Membership::getNickname)
+                            .orElse(null);
+                    return CurrentCycleDetailResponse.from(c, starterNickname, starterImageUrl(c));
+                })
                 .orElse(null);
 
         boolean canStartCycle = inProgress.isEmpty() && members.size() >= MIN_MEMBERS_TO_START_CYCLE;
@@ -225,7 +228,26 @@ public class GroupService {
     }
 
     @Transactional
-    public GroupJoinResponse joinGroup(Long userId, String inviteCode) {
+    public GroupNicknameResponse updateMyGroupNickname(Long userId, Long groupId, String nickname) {
+        if (!groupRepository.existsById(groupId)) {
+            throw new CustomException(ErrorCode.GROUP_NOT_FOUND);
+        }
+
+        Membership membership = membershipRepository.findByGroupIdAndUserId(groupId, userId)
+                .filter(Membership::isActive)
+                .orElseThrow(() -> new CustomException(ErrorCode.NOT_GROUP_MEMBER));
+        
+        if (!membership.getNickname().equals(nickname)
+                && membershipRepository.existsByGroupIdAndNicknameAndLeftAtIsNull(groupId, nickname)) {
+            throw new CustomException(ErrorCode.DUPLICATE_GROUP_NICKNAME);
+        }
+
+        membership.updateNickname(nickname);
+        return new GroupNicknameResponse(groupId, nickname);
+    }
+
+    @Transactional
+    public GroupJoinResponse joinGroup(Long userId, String inviteCode, String nickname) {
         Group group = groupRepository.findByInviteCode(inviteCode)
                 .orElseThrow(() -> new CustomException(ErrorCode.INVALID_INVITE_CODE));
 
@@ -244,12 +266,17 @@ public class GroupService {
             throw new CustomException(ErrorCode.GROUP_LIMIT_EXCEEDED);
         }
 
+        if (membershipRepository.existsByGroupIdAndNicknameAndLeftAtIsNull(group.getId(), nickname)) {
+            throw new CustomException(ErrorCode.DUPLICATE_GROUP_NICKNAME);
+        }
+
         if (existing != null) {
-            existing.rejoin(LocalDateTime.now());
+            existing.rejoin(LocalDateTime.now(), nickname);
         } else {
             membershipRepository.save(Membership.builder()
                     .groupId(group.getId())
                     .userId(userId)
+                    .nickname(nickname)
                     .role(MembershipRole.MEMBER)
                     .joinedAt(LocalDateTime.now())
                     .build());

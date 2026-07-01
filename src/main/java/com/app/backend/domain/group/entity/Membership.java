@@ -29,6 +29,9 @@ public class Membership {
     @Column(name = "user_id")
     private Long userId;
 
+    @Column(nullable = false, length = 10)
+    private String nickname;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
     private MembershipRole role;
@@ -40,9 +43,10 @@ public class Membership {
     private LocalDateTime leftAt;
 
     @Builder
-    private Membership(Long groupId, Long userId, MembershipRole role, LocalDateTime joinedAt) {
+    private Membership(Long groupId, Long userId, String nickname, MembershipRole role, LocalDateTime joinedAt) {
         this.groupId = groupId;
         this.userId = userId;
+        this.nickname = nickname;
         this.role = role;
         this.joinedAt = joinedAt;
     }
@@ -56,9 +60,15 @@ public class Membership {
         this.leftAt = leftAt;
     }
 
-    // 나갔던 멤버가 다시 합류: 새 row 대신 left_at을 NULL로 복귀
-    public void rejoin(LocalDateTime joinedAt) {
+    // 나갔던 멤버가 다시 합류: 새 row 대신 left_at을 NULL로 복귀 (닉네임 재입력)
+    public void rejoin(LocalDateTime joinedAt, String nickname) {
         this.joinedAt = joinedAt;
+        this.nickname = nickname;
         this.leftAt = null;
+    }
+
+    // 모임 내 닉네임 변경
+    public void updateNickname(String nickname) {
+        this.nickname = nickname;
     }
 }

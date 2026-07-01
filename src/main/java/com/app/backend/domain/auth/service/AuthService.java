@@ -69,7 +69,7 @@ public class AuthService {
         User user = userRepository.save(User.builder()
                 .provider(request.provider())
                 .providerId(userInfo.providerId())
-                .nickname(request.nickname())
+                .name(userInfo.name())
                 .build());
 
         return issueTokens(user, true);

@@ -11,11 +11,11 @@ public record AuthResponse(
 
     public record UserInfo(
             Long id,
-            String nickname,
+            String name,
             String profileImageUrl
     ) {
         public static UserInfo from(User user) {
-            return new UserInfo(user.getId(), user.getNickname(), user.getProfileImageUrl());
+            return new UserInfo(user.getId(), user.getName(), user.getProfileImageUrl());
         }
     }
 

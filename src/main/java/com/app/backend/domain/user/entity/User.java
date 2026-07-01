@@ -43,7 +43,7 @@ public class User {
     private String email;
 
     @Column(nullable = false)
-    private String nickname;
+    private String name;
 
     @Column(name = "profile_image_url", length = 500)
     private String profileImageUrl;
@@ -62,11 +62,11 @@ public class User {
 
     @Builder
     private User(AuthProvider provider, String providerId, String email,
-                 String nickname, String profileImageUrl) {
+                 String name, String profileImageUrl) {
         this.provider = provider;
         this.providerId = providerId;
         this.email = email;
-        this.nickname = nickname;
+        this.name = name;
         this.profileImageUrl = profileImageUrl;
     }
 
@@ -83,7 +83,7 @@ public class User {
     /** 회원 탈퇴 — soft delete + 개인정보 익명화. (U-05) */
     public void withdraw(LocalDateTime now) {
         this.deletedAt = now;
-        this.nickname = "탈퇴한사용자";
+        this.name = "탈퇴한사용자";
         this.email = null;
         this.profileImageUrl = null;
     }

@@ -41,9 +41,9 @@ public class GoogleOAuthClient implements OAuthClient {
             throw new CustomException(ErrorCode.INVALID_OAUTH_TOKEN);
         }
 
-        return new OAuthUserInfo(response.sub());
+        return new OAuthUserInfo(response.sub(), response.name());
     }
 
-    private record GoogleUserResponse(String sub) {
+    private record GoogleUserResponse(String sub, String name) {
     }
 }
