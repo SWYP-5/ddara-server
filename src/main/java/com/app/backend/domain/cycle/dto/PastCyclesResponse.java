@@ -1,0 +1,19 @@
+package com.app.backend.domain.cycle.dto;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+public record PastCyclesResponse(
+        List<PastCycle> cycles
+) {
+    public record PastCycle(
+            Long cycleId,
+            Integer cycleNumber,
+            String topic,
+            String starterNickname,
+            String thumbnailUrl,
+            long participantCount,
+            LocalDateTime date
+    ) {
+    }
+}

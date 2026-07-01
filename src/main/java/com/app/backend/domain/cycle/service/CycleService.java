@@ -3,6 +3,7 @@ package com.app.backend.domain.cycle.service;
 import com.app.backend.domain.cycle.dto.CreateCycleRequest;
 import com.app.backend.domain.cycle.dto.CurrentCycleResponse;
 import com.app.backend.domain.cycle.dto.CycleCreateResponse;
+import com.app.backend.domain.cycle.dto.PastCyclesResponse;
 import com.app.backend.domain.cycle.entity.Cycle;
 import com.app.backend.domain.cycle.entity.CycleStatus;
 import com.app.backend.domain.cycle.repository.CycleRepository;
@@ -101,6 +102,41 @@ public class CycleService {
                     return CurrentCycleResponse.of(cycle, starterNickname, starterImageUrl);
                 })
                 .orElseGet(CurrentCycleResponse::empty);
+    }
+
+    @Transactional(readOnly = true)
+    public PastCyclesResponse getPastCycles(Long userId, Long groupId) {
+        if (!groupRepository.existsById(groupId)) {
+            throw new CustomException(ErrorCode.GROUP_NOT_FOUND);
+        }
+        if (!membershipRepository.existsByGroupIdAndUserIdAndLeftAtIsNull(groupId, userId)) {
+            throw new CustomException(ErrorCode.NOT_GROUP_MEMBER);
+        }
+
+        List<PastCyclesResponse.PastCycle> cycles = cycleRepository
+                .findByGroupIdAndStatusOrderByCycleNumberDesc(groupId, CycleStatus.DONE).stream()
+                .map(cycle -> {
+                    String starterNickname = membershipRepository
+                            .findByGroupIdAndUserId(groupId, cycle.getStarterUserId())
+                            .map(Membership::getNickname)
+                            .orElse(null);
+                    String thumbnailUrl = shotRepository
+                            .findByCycleIdAndType(cycle.getId(), ShotType.STARTER)
+                            .map(Shot::getImageUrl)
+                            .orElse(null);
+                    long participantCount = shotRepository.countByCycleIdAndDeletedAtIsNull(cycle.getId());
+                    return new PastCyclesResponse.PastCycle(
+                            cycle.getId(),
+                            cycle.getCycleNumber(),
+                            cycle.getTopic(),
+                            starterNickname,
+                            thumbnailUrl,
+                            participantCount,
+                            cycle.getStartedAt());
+                })
+                .toList();
+
+        return new PastCyclesResponse(cycles);
     }
 
     // 시작 후 24h(deadline) 지난 진행 중 회차를 일괄 마감 (스케줄러용)
