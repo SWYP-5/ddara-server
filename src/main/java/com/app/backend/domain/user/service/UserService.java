@@ -104,6 +104,22 @@ public class UserService {
                 new NotificationSettingsResponse.Etc(request.etc().memberJoin()));
     }
 
+    /** FCM 토큰 등록(U-06). 유저당 1개 — 재등록 시 덮어쓴다. */
+    @Transactional
+    public void registerFcmToken(Long userId, String fcmToken) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        user.updateFcmToken(fcmToken);
+    }
+
+    /** FCM 토큰 제거(U-06). 로그아웃 시 auth 도메인(오지원)에서 호출하는 연동 지점. */
+    @Transactional
+    public void clearFcmToken(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        user.clearFcmToken();
+    }
+
     @Transactional
     public void withdraw(Long userId) {
         User user = userRepository.findById(userId)
