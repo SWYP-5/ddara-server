@@ -8,9 +8,7 @@ public record PastCyclesResponse(
 ) {
     public record PastCycle(
             Long cycleId,
-            Integer cycleNumber,
             String topic,
-            String starterNickname,
             String thumbnailUrl,
             long participantCount,
             LocalDateTime date

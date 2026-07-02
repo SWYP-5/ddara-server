@@ -1,13 +1,11 @@
 package com.app.backend.domain.cycle.service;
 
 import com.app.backend.domain.cycle.dto.CreateCycleRequest;
-import com.app.backend.domain.cycle.dto.CurrentCycleResponse;
 import com.app.backend.domain.cycle.dto.CycleCreateResponse;
 import com.app.backend.domain.cycle.dto.PastCyclesResponse;
 import com.app.backend.domain.cycle.entity.Cycle;
 import com.app.backend.domain.cycle.entity.CycleStatus;
 import com.app.backend.domain.cycle.repository.CycleRepository;
-import com.app.backend.domain.group.entity.Membership;
 import com.app.backend.domain.group.repository.GroupRepository;
 import com.app.backend.domain.group.repository.MembershipRepository;
 import com.app.backend.domain.shot.entity.Shot;
@@ -81,30 +79,6 @@ public class CycleService {
     }
 
     @Transactional(readOnly = true)
-    public CurrentCycleResponse getCurrentCycle(Long userId, Long groupId) {
-        if (!groupRepository.existsById(groupId)) {
-            throw new CustomException(ErrorCode.GROUP_NOT_FOUND);
-        }
-        if (!membershipRepository.existsByGroupIdAndUserIdAndLeftAtIsNull(groupId, userId)) {
-            throw new CustomException(ErrorCode.NOT_GROUP_MEMBER);
-        }
-
-        return cycleRepository.findByGroupIdAndStatus(groupId, CycleStatus.IN_PROGRESS)
-                .map(cycle -> {
-                    String starterNickname = membershipRepository
-                            .findByGroupIdAndUserId(groupId, cycle.getStarterUserId())
-                            .map(Membership::getNickname)
-                            .orElse(null);
-                    String starterImageUrl = shotRepository
-                            .findByCycleIdAndType(cycle.getId(), ShotType.STARTER)
-                            .map(Shot::getImageUrl)
-                            .orElse(null);
-                    return CurrentCycleResponse.of(cycle, starterNickname, starterImageUrl);
-                })
-                .orElseGet(CurrentCycleResponse::empty);
-    }
-
-    @Transactional(readOnly = true)
     public PastCyclesResponse getPastCycles(Long userId, Long groupId) {
         if (!groupRepository.existsById(groupId)) {
             throw new CustomException(ErrorCode.GROUP_NOT_FOUND);
@@ -116,10 +90,6 @@ public class CycleService {
         List<PastCyclesResponse.PastCycle> cycles = cycleRepository
                 .findByGroupIdAndStatusOrderByCycleNumberDesc(groupId, CycleStatus.DONE).stream()
                 .map(cycle -> {
-                    String starterNickname = membershipRepository
-                            .findByGroupIdAndUserId(groupId, cycle.getStarterUserId())
-                            .map(Membership::getNickname)
-                            .orElse(null);
                     String thumbnailUrl = shotRepository
                             .findByCycleIdAndType(cycle.getId(), ShotType.STARTER)
                             .map(Shot::getImageUrl)
@@ -127,9 +97,7 @@ public class CycleService {
                     long participantCount = shotRepository.countByCycleIdAndDeletedAtIsNull(cycle.getId());
                     return new PastCyclesResponse.PastCycle(
                             cycle.getId(),
-                            cycle.getCycleNumber(),
                             cycle.getTopic(),
-                            starterNickname,
                             thumbnailUrl,
                             participantCount,
                             cycle.getStartedAt());

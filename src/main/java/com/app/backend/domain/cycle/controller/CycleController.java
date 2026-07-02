@@ -1,7 +1,6 @@
 package com.app.backend.domain.cycle.controller;
 
 import com.app.backend.domain.cycle.dto.CreateCycleRequest;
-import com.app.backend.domain.cycle.dto.CurrentCycleResponse;
 import com.app.backend.domain.cycle.dto.CycleCreateResponse;
 import com.app.backend.domain.cycle.dto.PastCyclesResponse;
 import com.app.backend.domain.cycle.service.CycleService;
@@ -35,12 +34,6 @@ public class CycleController {
         return cycleService.createCycle(userId, groupId, request);
     }
 
-    @GetMapping("/current")
-    public CurrentCycleResponse getCurrentCycle(@AuthenticationPrincipal Long userId,
-                                                @PathVariable Long groupId) {
-        return cycleService.getCurrentCycle(userId, groupId);
-    }
-    
     @GetMapping
     public PastCyclesResponse getPastCycles(@AuthenticationPrincipal Long userId,
                                             @PathVariable Long groupId,
