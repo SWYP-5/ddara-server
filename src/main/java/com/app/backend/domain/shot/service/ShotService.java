@@ -123,7 +123,7 @@ public class ShotService {
                     } else {
                         boolean canSee = cycleDone || viewerUploaded || isStarter || memberId.equals(userId);
                         status = canSee ? "open" : "locked";
-                        imageUrl = canSee ? shot.getImageUrl() : null;
+                        imageUrl = shot.getImageUrl();
                         uploadedAt = shot.getUploadedAt();
                     }
                     return new ShotListResponse.MemberShot(
