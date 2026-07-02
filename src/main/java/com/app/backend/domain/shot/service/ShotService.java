@@ -3,7 +3,9 @@ package com.app.backend.domain.shot.service;
 import com.app.backend.domain.cycle.entity.Cycle;
 import com.app.backend.domain.cycle.entity.CycleStatus;
 import com.app.backend.domain.cycle.repository.CycleRepository;
+import com.app.backend.domain.group.entity.Group;
 import com.app.backend.domain.group.entity.Membership;
+import com.app.backend.domain.group.repository.GroupRepository;
 import com.app.backend.domain.group.repository.MembershipRepository;
 import com.app.backend.domain.shot.dto.ShotListResponse;
 import com.app.backend.domain.shot.dto.ShotResponse;
@@ -29,15 +31,18 @@ import java.util.stream.Collectors;
 public class ShotService {
 
     private final CycleRepository cycleRepository;
+    private final GroupRepository groupRepository;
     private final MembershipRepository membershipRepository;
     private final ShotRepository shotRepository;
     private final UserRepository userRepository;
 
     public ShotService(CycleRepository cycleRepository,
+                       GroupRepository groupRepository,
                        MembershipRepository membershipRepository,
                        ShotRepository shotRepository,
                        UserRepository userRepository) {
         this.cycleRepository = cycleRepository;
+        this.groupRepository = groupRepository;
         this.membershipRepository = membershipRepository;
         this.shotRepository = shotRepository;
         this.userRepository = userRepository;
@@ -133,6 +138,23 @@ public class ShotService {
                 .sorted(Comparator.comparing((ShotListResponse.MemberShot ms) -> !ms.isStarter()))
                 .toList();
 
-        return new ShotListResponse(viewerUploaded, memberShots);
+        String groupName = groupRepository.findById(cycle.getGroupId())
+                .map(Group::getName)
+                .orElse(null);
+        String starterNickname = membershipRepository
+                .findByGroupIdAndUserId(cycle.getGroupId(), starterId)
+                .map(Membership::getNickname)
+                .orElse(null);
+        Shot starterShot = shotsByUser.get(starterId);
+        ShotListResponse.CycleBanner cycleBanner = new ShotListResponse.CycleBanner(
+                cycle.getId(),
+                cycle.getCycleNumber(),
+                cycle.getTopic(),
+                starterNickname,
+                starterShot != null ? starterShot.getImageUrl() : null,
+                cycle.getStatus(),
+                cycle.getDeadlineAt());
+
+        return new ShotListResponse(cycle.getGroupId(), groupName, cycleBanner, viewerUploaded, memberShots);
     }
 }
