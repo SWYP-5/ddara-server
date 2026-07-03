@@ -38,3 +38,15 @@ aws:
   s3:
     bucket: ${AWS_S3_BUCKET:ddara-images}
     region: ${AWS_S3_REGION:ap-northeast-2}
+
+---
+# 배포(dev) 프로파일 전용 오버라이드.
+# 프로필 이미지 접근 URL 앞부분을 EC2 주소로. (미설정 시 기본값 localhost가 나가 프론트가 이미지를 못 불러오는 문제 방지)
+# 환경변수 UPLOAD_BASE_URL로 덮어쓸 수 있음.
+spring:
+  config:
+    activate:
+      on-profile: dev
+app:
+  upload:
+    base-url: ${UPLOAD_BASE_URL:http://54.116.202.230}
