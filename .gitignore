@@ -25,6 +25,9 @@ application-dev.yml
 # Firebase 서비스 계정 키 (절대 커밋 금지)
 firebase-service-account.json
 *-service-account.json
+*firebase-adminsdk*.json
+*firebase*.json
+src/main/resources/firebase/
 
 # 로그
 *.log
