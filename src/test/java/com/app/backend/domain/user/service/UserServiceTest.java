@@ -16,8 +16,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.mock.web.MockMultipartFile;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Optional;
 
@@ -34,19 +32,21 @@ class UserServiceTest {
     private UserRepository userRepository;
 
     @Mock
-    private ProfileImageStorage profileImageStorage;
-
-    @Mock
     private RefreshTokenRepository refreshTokenRepository;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    // 우리 S3 버킷의 profiles/ 경로 URL (테스트 값)
+    private static final String VALID_S3_URL =
+            "https://ddara-images.s3.ap-northeast-2.amazonaws.com/profiles/abc.jpg";
 
     private UserService userService;
 
     @BeforeEach
     void setUp() {
         userService = new UserService(
-                userRepository, profileImageStorage, objectMapper, refreshTokenRepository);
+                userRepository, objectMapper, refreshTokenRepository,
+                "ddara-images", "ap-northeast-2");
     }
 
     private User createUser() {
@@ -87,51 +87,50 @@ class UserServiceTest {
     }
 
     @Test
-    void 프로필_이미지를_변경하면_저장하고_URL을_반환한다() {
-        // given: 유효한 jpeg 이미지를 올리면, 저장소가 URL을 돌려준다
+    void 프로필_이미지를_변경하면_URL을_저장하고_반환한다() {
+        // given: presign으로 우리 S3에 올린 이미지 URL
         User user = createUser();
         given(userRepository.findById(1L)).willReturn(Optional.of(user));
-        MultipartFile image = new MockMultipartFile(
-                "image", "me.jpg", "image/jpeg", new byte[]{1, 2, 3});
-        given(profileImageStorage.store(image))
-                .willReturn("http://localhost:8080/images/profiles/abc.jpg");
 
         // when
-        ProfileImageResponse response = userService.updateProfileImage(1L, image);
+        ProfileImageResponse response = userService.updateProfileImage(1L, VALID_S3_URL);
 
         // then: 응답·엔티티 모두 새 URL로 갱신
-        assertThat(response.profileImageUrl())
-                .isEqualTo("http://localhost:8080/images/profiles/abc.jpg");
-        assertThat(user.getProfileImageUrl())
-                .isEqualTo("http://localhost:8080/images/profiles/abc.jpg");
+        assertThat(response.profileImageUrl()).isEqualTo(VALID_S3_URL);
+        assertThat(user.getProfileImageUrl()).isEqualTo(VALID_S3_URL);
     }
 
     @Test
     void 이미지_없이_요청하면_프로필_이미지를_초기화한다() {
         // given: 이미 프로필 이미지가 있는 유저
         User user = createUser();
-        user.updateProfileImage("http://localhost:8080/images/profiles/old.jpg");
+        user.updateProfileImage(VALID_S3_URL);
         given(userRepository.findById(1L)).willReturn(Optional.of(user));
 
-        // when: image 없이(null) 요청
+        // when: imageUrl 없이(null) 요청
         ProfileImageResponse response = userService.updateProfileImage(1L, null);
 
-        // then: 디폴트로 초기화(null), 저장소는 호출되지 않음
+        // then: 디폴트로 초기화(null)
         assertThat(response.profileImageUrl()).isNull();
         assertThat(user.getProfileImageUrl()).isNull();
-        verify(profileImageStorage, never()).store(org.mockito.ArgumentMatchers.any());
     }
 
     @Test
-    void 지원하지_않는_형식이면_INVALID_IMAGE_FILE_예외를_던진다() {
-        // given: jpg/png가 아닌 파일
+    void 우리_S3_경로가_아닌_URL이면_INVALID_IMAGE_FILE_예외를_던진다() {
+        // given: 외부/임의 URL — 보안상 임의 URL 저장 방지
         User user = createUser();
         given(userRepository.findById(1L)).willReturn(Optional.of(user));
-        MultipartFile notImage = new MockMultipartFile(
-                "image", "bad.txt", "text/plain", new byte[]{1, 2, 3});
 
-        // when & then
-        assertThatThrownBy(() -> userService.updateProfileImage(1L, notImage))
+        // when & then: 외부 도메인 거부
+        assertThatThrownBy(() ->
+                userService.updateProfileImage(1L, "https://evil.com/hack.jpg"))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_IMAGE_FILE);
+
+        // when & then: 우리 버킷이라도 profiles/ 아닌 경로(shots/) 거부
+        assertThatThrownBy(() -> userService.updateProfileImage(1L,
+                "https://ddara-images.s3.ap-northeast-2.amazonaws.com/shots/x.jpg"))
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_IMAGE_FILE);
@@ -141,11 +140,9 @@ class UserServiceTest {
     void 프로필_이미지_변경시_유저가_없으면_USER_NOT_FOUND_예외를_던진다() {
         // given
         given(userRepository.findById(999L)).willReturn(Optional.empty());
-        MultipartFile image = new MockMultipartFile(
-                "image", "me.jpg", "image/jpeg", new byte[]{1, 2, 3});
 
         // when & then
-        assertThatThrownBy(() -> userService.updateProfileImage(999L, image))
+        assertThatThrownBy(() -> userService.updateProfileImage(999L, VALID_S3_URL))
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_FOUND);

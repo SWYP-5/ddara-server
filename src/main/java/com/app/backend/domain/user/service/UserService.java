@@ -11,32 +11,31 @@ import com.app.backend.global.exception.CustomException;
 import com.app.backend.global.exception.ErrorCode;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
-import java.util.Set;
 
 @Service
 public class UserService {
 
-    // 프로필 이미지 허용 형식 (jpg/png)
-    private static final Set<String> SUPPORTED_IMAGE_TYPES = Set.of("image/jpeg", "image/png");
-
     private final UserRepository userRepository;
-    private final ProfileImageStorage profileImageStorage;
     private final ObjectMapper objectMapper;
     private final RefreshTokenRepository refreshTokenRepository;
+    // 프로필 이미지로 허용할 S3 URL 접두사 (우리 버킷의 profiles/ 경로만)
+    private final String profileImageUrlPrefix;
 
     public UserService(UserRepository userRepository,
-                       ProfileImageStorage profileImageStorage,
                        ObjectMapper objectMapper,
-                       RefreshTokenRepository refreshTokenRepository) {
+                       RefreshTokenRepository refreshTokenRepository,
+                       @Value("${aws.s3.bucket}") String bucket,
+                       @Value("${aws.s3.region}") String region) {
         this.userRepository = userRepository;
-        this.profileImageStorage = profileImageStorage;
         this.objectMapper = objectMapper;
         this.refreshTokenRepository = refreshTokenRepository;
+        this.profileImageUrlPrefix =
+                "https://" + bucket + ".s3." + region + ".amazonaws.com/profiles/";
     }
 
     @Transactional(readOnly = true)
@@ -47,23 +46,21 @@ public class UserService {
     }
 
     @Transactional
-    public ProfileImageResponse updateProfileImage(Long userId, MultipartFile image) {
+    public ProfileImageResponse updateProfileImage(Long userId, String imageUrl) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        // image 없음 → 디폴트 아바타로 초기화
-        if (image == null || image.isEmpty()) {
+        // imageUrl 없음 → 디폴트 아바타로 초기화
+        if (imageUrl == null || imageUrl.isBlank()) {
             user.updateProfileImage(null);
             return new ProfileImageResponse(null);
         }
 
-        // 형식 검증 (jpg/png만 허용)
-        if (!SUPPORTED_IMAGE_TYPES.contains(image.getContentType())) {
+        // 보안: 우리 S3 버킷의 profiles/ 경로 URL만 허용 (임의 URL 저장 방지)
+        if (!imageUrl.startsWith(profileImageUrlPrefix)) {
             throw new CustomException(ErrorCode.INVALID_IMAGE_FILE);
         }
 
-        // EC2 로컬에 저장하고 접근 URL만 DB에 보관
-        String imageUrl = profileImageStorage.store(image);
         user.updateProfileImage(imageUrl);
         return new ProfileImageResponse(imageUrl);
     }
