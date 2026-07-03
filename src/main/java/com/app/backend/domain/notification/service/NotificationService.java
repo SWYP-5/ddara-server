@@ -40,22 +40,24 @@ public class NotificationService {
     private final MembershipRepository membershipRepository;
     private final UserRepository userRepository;
     private final ShotRepository shotRepository;
+    private final FcmService fcmService;
 
     public NotificationService(NotificationRepository notificationRepository,
                                ObjectMapper objectMapper,
                                MembershipRepository membershipRepository,
                                UserRepository userRepository,
-                               ShotRepository shotRepository) {
+                               ShotRepository shotRepository,
+                               FcmService fcmService) {
         this.notificationRepository = notificationRepository;
         this.objectMapper = objectMapper;
         this.membershipRepository = membershipRepository;
         this.userRepository = userRepository;
         this.shotRepository = shotRepository;
+        this.fcmService = fcmService;
     }
 
     // ===== 알림 생성(INSERT) 내부 인터페이스 — 회차/모임 흐름(오지원)에서 호출 (부록 B) =====
-    // 각 메서드: 수신자별 notification_prefs 확인 → 켜져 있으면 인앱 알림 저장.
-    // FCM 발송은 Firebase 프로젝트 생성 후 추가 예정(현재 스킵, notifyEach의 TODO 참고).
+    // 각 메서드: 수신자별 notification_prefs 확인 → 켜져 있으면 인앱 알림 저장 + FCM 푸시 발송.
 
     /** 회차 시작 → 모임 멤버 전원. */
     @Transactional
@@ -126,10 +128,41 @@ public class NotificationService {
                     .type(type)
                     .payload(payloadJson)
                     .build());
-            // TODO(FCM): Firebase 프로젝트 생성 후, user.getFcmToken()이 있으면 여기서 FCM 발송.
-            //            무효 토큰(UNREGISTERED/INVALID_ARGUMENT) 응답이면 user.clearFcmToken().
-            //            FCM 성공/실패와 무관하게 위 인앱 저장은 항상 유지한다.
+            // FCM 푸시 발송 — 실패해도 예외를 던지지 않으므로(FcmService 내부 처리)
+            // 위 인앱 저장은 항상 유지된다. 무효 토큰이면 FcmService가 user의 토큰을 비운다.
+            fcmService.sendTo(user, pushTitle(type), pushBody(type, payload), pushData(type, payload));
         }
+    }
+
+    /** 알림 타입별 푸시 제목. */
+    private String pushTitle(NotificationType type) {
+        return switch (type) {
+            case NEW_CYCLE -> "📸 새로운 따라찍기 시작!";
+            case CYCLE_COMPLETED -> "🎉 따라찍기 마감";
+            case MEMBER_JOIN -> "👋 새 멤버 합류";
+            case DEADLINE -> "⏰ 마감 1시간 전";
+            default -> "따라 알림";   // 2차 타입 대비
+        };
+    }
+
+    /** 알림 타입별 푸시 본문. payload의 모임/합류자 이름을 활용. */
+    private String pushBody(NotificationType type, Map<String, Object> payload) {
+        String groupName = String.valueOf(payload.getOrDefault("groupName", "모임"));
+        return switch (type) {
+            case NEW_CYCLE -> groupName + "에서 새 따라찍기가 시작됐어요. 24시간 안에 참여해보세요!";
+            case CYCLE_COMPLETED -> groupName + "의 따라찍기가 끝났어요. 결과를 확인해보세요!";
+            case MEMBER_JOIN -> payload.getOrDefault("actorNickname", "친구") + "님이 " + groupName + "에 합류했어요.";
+            case DEADLINE -> groupName + "의 따라찍기가 곧 마감돼요. 지금 참여하세요!";
+            default -> groupName + "에 새로운 소식이 있어요.";
+        };
+    }
+
+    /** 푸시 클릭 시 앱이 화면 이동에 쓸 data(모두 문자열이어야 함 — FCM 규격). */
+    private Map<String, String> pushData(NotificationType type, Map<String, Object> payload) {
+        Map<String, String> data = new LinkedHashMap<>();
+        data.put("type", type.name());
+        payload.forEach((k, v) -> data.put(k, String.valueOf(v)));
+        return data;
     }
 
     /** 수신자의 notification_prefs(마스터 + 타입별 토글)를 확인. 미설정/깨진 값이면 전체 허용. */
