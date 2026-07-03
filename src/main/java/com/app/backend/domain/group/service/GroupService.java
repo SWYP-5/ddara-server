@@ -19,6 +19,7 @@ import com.app.backend.domain.group.entity.Membership;
 import com.app.backend.domain.group.entity.MembershipRole;
 import com.app.backend.domain.group.repository.GroupRepository;
 import com.app.backend.domain.group.repository.MembershipRepository;
+import com.app.backend.domain.notification.service.NotificationService;
 import com.app.backend.domain.shot.entity.Shot;
 import com.app.backend.domain.shot.entity.ShotType;
 import com.app.backend.domain.shot.repository.ShotRepository;
@@ -54,19 +55,22 @@ public class GroupService {
     private final CycleRepository cycleRepository;
     private final ShotRepository shotRepository;
     private final InviteCodeGenerator inviteCodeGenerator;
+    private final NotificationService notificationService;
 
     public GroupService(GroupRepository groupRepository,
                         MembershipRepository membershipRepository,
                         UserRepository userRepository,
                         CycleRepository cycleRepository,
                         ShotRepository shotRepository,
-                        InviteCodeGenerator inviteCodeGenerator) {
+                        InviteCodeGenerator inviteCodeGenerator,
+                        NotificationService notificationService) {
         this.groupRepository = groupRepository;
         this.membershipRepository = membershipRepository;
         this.userRepository = userRepository;
         this.cycleRepository = cycleRepository;
         this.shotRepository = shotRepository;
         this.inviteCodeGenerator = inviteCodeGenerator;
+        this.notificationService = notificationService;
     }
 
     @Transactional
@@ -282,7 +286,8 @@ public class GroupService {
                     .build());
         }
 
-        // TODO(NOTI): 합류 성공 시 기존 멤버 전원에게 member_join 알림 발송 (NOTI 도메인 구현 후 연결)
+        // 합류 성공 → 기존 멤버(합류 본인 제외)에게 인앱 알림 + FCM 푸시 (#77)
+        notificationService.createMemberJoin(group.getId(), group.getName(), nickname, userId);
 
         return GroupJoinResponse.from(group);
     }

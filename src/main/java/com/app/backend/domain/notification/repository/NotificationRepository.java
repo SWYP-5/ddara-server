@@ -21,6 +21,9 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     // 내 전체 안읽음 개수
     long countByUserIdAndReadAtIsNull(Long userId);
 
+    // 같은 회차의 DEADLINE 알림 중복 생성 방지용 — payload에 "cycleId":{id}, 포함 여부로 판별
+    boolean existsByTypeAndPayloadContaining(NotificationType type, String payloadFragment);
+
     // 내 안읽음 알림 전부 일괄 읽음 처리 (N-03)
     @Modifying(clearAutomatically = true)
     @Query("update Notification n set n.readAt = :now where n.userId = :userId and n.readAt is null")

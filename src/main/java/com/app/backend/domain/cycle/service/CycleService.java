@@ -6,8 +6,10 @@ import com.app.backend.domain.cycle.dto.PastCyclesResponse;
 import com.app.backend.domain.cycle.entity.Cycle;
 import com.app.backend.domain.cycle.entity.CycleStatus;
 import com.app.backend.domain.cycle.repository.CycleRepository;
+import com.app.backend.domain.group.entity.Group;
 import com.app.backend.domain.group.repository.GroupRepository;
 import com.app.backend.domain.group.repository.MembershipRepository;
+import com.app.backend.domain.notification.service.NotificationService;
 import com.app.backend.domain.shot.entity.Shot;
 import com.app.backend.domain.shot.entity.ShotType;
 import com.app.backend.domain.shot.repository.ShotRepository;
@@ -29,22 +31,24 @@ public class CycleService {
     private final MembershipRepository membershipRepository;
     private final CycleRepository cycleRepository;
     private final ShotRepository shotRepository;
+    private final NotificationService notificationService;
 
     public CycleService(GroupRepository groupRepository,
                         MembershipRepository membershipRepository,
                         CycleRepository cycleRepository,
-                        ShotRepository shotRepository) {
+                        ShotRepository shotRepository,
+                        NotificationService notificationService) {
         this.groupRepository = groupRepository;
         this.membershipRepository = membershipRepository;
         this.cycleRepository = cycleRepository;
         this.shotRepository = shotRepository;
+        this.notificationService = notificationService;
     }
 
     @Transactional
     public CycleCreateResponse createCycle(Long userId, Long groupId, CreateCycleRequest request) {
-        if (!groupRepository.existsById(groupId)) {
-            throw new CustomException(ErrorCode.GROUP_NOT_FOUND);
-        }
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new CustomException(ErrorCode.GROUP_NOT_FOUND));
         if (!membershipRepository.existsByGroupIdAndUserIdAndLeftAtIsNull(groupId, userId)) {
             throw new CustomException(ErrorCode.NOT_GROUP_MEMBER);
         }
@@ -74,6 +78,9 @@ public class CycleService {
                 .type(ShotType.STARTER)
                 .imageUrl(request.imageUrl())
                 .build());
+
+        // 회차 시작 → 모임 멤버 전원에게 인앱 알림 + FCM 푸시 (#77)
+        notificationService.createNewCycle(groupId, group.getName(), cycle.getId());
 
         return CycleCreateResponse.of(cycle, starterShot);
     }
@@ -112,7 +119,30 @@ public class CycleService {
     public int closeOverdueCycles() {
         List<Cycle> overdue = cycleRepository
                 .findByStatusAndDeadlineAtBefore(CycleStatus.IN_PROGRESS, LocalDateTime.now());
-        overdue.forEach(Cycle::complete);
+        for (Cycle cycle : overdue) {
+            cycle.complete();
+            // 회차 마감 → 모임 멤버 전원에게 인앱 알림 + FCM 푸시 (#77)
+            notificationService.createCycleCompleted(
+                    cycle.getGroupId(), groupName(cycle.getGroupId()), cycle.getId());
+        }
         return overdue.size();
+    }
+
+    // 마감까지 1시간 남은 진행 중 회차의 미참여 멤버에게 임박 알림 (스케줄러용)
+    // 중복 발송 방지는 NotificationService.createDeadline 내부에서 처리하므로 매분 호출해도 안전
+    @Transactional
+    public int notifyUpcomingDeadlines() {
+        LocalDateTime now = LocalDateTime.now();
+        List<Cycle> closing = cycleRepository.findByStatusAndDeadlineAtBetween(
+                CycleStatus.IN_PROGRESS, now, now.plusHours(1));
+        for (Cycle cycle : closing) {
+            notificationService.createDeadline(
+                    cycle.getGroupId(), groupName(cycle.getGroupId()), cycle.getId(), cycle.getDeadlineAt());
+        }
+        return closing.size();
+    }
+
+    private String groupName(Long groupId) {
+        return groupRepository.findById(groupId).map(Group::getName).orElse("모임");
     }
 }
