@@ -92,9 +92,14 @@ public class NotificationService {
         notifyEach(recipients, NotificationType.MEMBER_JOIN, payload);
     }
 
-    /** 마감 1시간 전(타이밍은 오지원 스케줄러) → 아직 인증샷을 올리지 않은 미참여 멤버. */
+    /** 마감 1시간 전(CycleScheduler가 매분 호출) → 아직 인증샷을 올리지 않은 미참여 멤버. */
     @Transactional
     public void createDeadline(Long groupId, String groupName, Long cycleId, LocalDateTime deadlineAt) {
+        // 스케줄러가 1분마다 재호출하므로, 같은 회차에 이미 생성했으면 스킵(중복 발송 방지)
+        if (notificationRepository.existsByTypeAndPayloadContaining(
+                NotificationType.DEADLINE, "\"cycleId\":" + cycleId + ",")) {
+            return;
+        }
         List<Long> recipients = activeMemberIds(groupId).stream()
                 .filter(id -> !shotRepository.existsByCycleIdAndUserIdAndDeletedAtIsNull(cycleId, id))
                 .toList();

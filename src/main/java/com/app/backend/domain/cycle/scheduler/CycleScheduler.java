@@ -25,4 +25,11 @@ public class CycleScheduler {
             log.info("24h 경과 회차 {}건 자동 마감", closed);
         }
     }
+
+    // 1분마다 마감 1시간 내 회차의 미참여 멤버에게 임박 알림 (#77)
+    // 같은 회차 중복 발송은 NotificationService가 막으므로 매분 돌아도 안전
+    @Scheduled(fixedDelay = 60_000)
+    public void notifyUpcomingDeadlines() {
+        cycleService.notifyUpcomingDeadlines();
+    }
 }

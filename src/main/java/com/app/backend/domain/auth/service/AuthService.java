@@ -90,6 +90,9 @@ public class AuthService {
 
     @Transactional
     public void logout(String refreshToken) {
+        // 로그아웃한 기기로 푸시가 가지 않도록 FCM 토큰도 함께 제거 (#77)
+        refreshTokenRepository.findByToken(refreshToken).ifPresent(saved ->
+                userRepository.findById(saved.getUserId()).ifPresent(User::clearFcmToken));
         refreshTokenRepository.deleteByToken(refreshToken);
     }
 

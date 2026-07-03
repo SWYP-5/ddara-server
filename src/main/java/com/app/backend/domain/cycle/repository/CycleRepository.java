@@ -18,6 +18,9 @@ public interface CycleRepository extends JpaRepository<Cycle, Long> {
 
     List<Cycle> findByStatusAndDeadlineAtBefore(CycleStatus status, LocalDateTime time);
 
+    // 마감 임박(1시간 내) 회차 조회 — 마감 임박 알림용 (#77)
+    List<Cycle> findByStatusAndDeadlineAtBetween(CycleStatus status, LocalDateTime from, LocalDateTime to);
+
     Optional<Cycle> findTopByGroupIdAndStatusOrderByCycleNumberDesc(Long groupId, CycleStatus status);
 
     List<Cycle> findByGroupIdAndStatusOrderByCycleNumberDesc(Long groupId, CycleStatus status);

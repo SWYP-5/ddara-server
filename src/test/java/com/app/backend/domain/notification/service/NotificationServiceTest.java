@@ -284,6 +284,20 @@ class NotificationServiceTest {
     }
 
     @Test
+    void 마감_알림은_같은_회차에_이미_생성했으면_중복_생성하지_않는다() {
+        // given: 55번 회차의 DEADLINE 알림이 이미 존재 (스케줄러가 1분마다 재호출하는 상황)
+        given(notificationRepository.existsByTypeAndPayloadContaining(
+                NotificationType.DEADLINE, "\"cycleId\":55,")).willReturn(true);
+
+        // when
+        notificationService.createDeadline(7L, "마라탕 모임", 55L, LocalDateTime.now());
+
+        // then: 수신자 계산도, 저장도 하지 않고 스킵
+        verify(notificationRepository, never()).save(any());
+        verify(membershipRepository, never()).findByGroupIdAndLeftAtIsNull(any());
+    }
+
+    @Test
     void 마스터_알림설정이_꺼져있으면_알림을_생성하지_않는다() {
         // given: 멤버 1번이 마스터(allowAll) off
         given(membershipRepository.findByGroupIdAndLeftAtIsNull(7L))
