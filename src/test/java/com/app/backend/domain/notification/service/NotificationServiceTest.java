@@ -52,6 +52,9 @@ class NotificationServiceTest {
     @Mock
     private ShotRepository shotRepository;
 
+    @Mock
+    private FcmService fcmService;
+
     @Captor
     private ArgumentCaptor<Collection<NotificationType>> typesCaptor;
 
@@ -66,7 +69,7 @@ class NotificationServiceTest {
     void setUp() {
         notificationService = new NotificationService(
                 notificationRepository, objectMapper,
-                membershipRepository, userRepository, shotRepository);
+                membershipRepository, userRepository, shotRepository, fcmService);
     }
 
     // 지정한 알림 설정(prefs JSON, null이면 전체 on)을 가진 유저
@@ -308,6 +311,40 @@ class NotificationServiceTest {
 
         // then: followShot off라 생성 안 됨
         verify(notificationRepository, never()).save(any());
+    }
+
+    @Test
+    void 알림_생성시_수신자에게_FCM_푸시_발송도_요청한다() {
+        // given: 모임 7에 멤버 1 (설정 전체 on)
+        User user = userWithPrefs(null);
+        given(membershipRepository.findByGroupIdAndLeftAtIsNull(7L))
+                .willReturn(List.of(member(7L, 1L)));
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
+
+        // when
+        notificationService.createMemberJoin(7L, "마라탕 모임", "지원", 3L);
+
+        // then: 인앱 저장 + FCM 발송 요청 둘 다 수행
+        verify(notificationRepository).save(any());
+        verify(fcmService).sendTo(eq(user), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyMap());
+    }
+
+    @Test
+    void 알림설정이_꺼진_유저에게는_FCM도_발송하지_않는다() {
+        // given: 멤버 1번이 마스터(allowAll) off
+        given(membershipRepository.findByGroupIdAndLeftAtIsNull(7L))
+                .willReturn(List.of(member(7L, 1L)));
+        given(userRepository.findById(1L)).willReturn(Optional.of(userWithPrefs(
+                "{\"allowAll\":false,\"activity\":{\"followShot\":true,\"deadlineVote\":true},\"etc\":{\"memberJoin\":true}}")));
+
+        // when
+        notificationService.createNewCycle(7L, "마라탕 모임", 55L);
+
+        // then: 인앱도 FCM도 없음
+        verify(notificationRepository, never()).save(any());
+        verify(fcmService, never()).sendTo(any(), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyMap());
     }
 
     @Test
