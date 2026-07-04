@@ -101,4 +101,15 @@ public class User {
         this.email = null;
         this.profileImageUrl = null;
     }
+
+    /** 탈퇴(soft delete) 상태인지 */
+    public boolean isWithdrawn() {
+        return deletedAt != null;
+    }
+
+    /** 탈퇴 계정을 같은 소셜로 재가입 시 재활성화 (deletedAt 해제 + 이름 소셜값으로 리셋) */
+    public void reactivate(String name) {
+        this.deletedAt = null;
+        this.name = name;
+    }
 }

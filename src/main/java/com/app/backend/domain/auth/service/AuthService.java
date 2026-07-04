@@ -49,7 +49,8 @@ public class AuthService {
         Optional<User> found =
                 userRepository.findByProviderAndProviderId(provider, userInfo.providerId());
 
-        if (found.isEmpty()) {
+        // 탈퇴한 계정은 미가입으로 취급 (재가입 유도)
+        if (found.isEmpty() || found.get().isWithdrawn()) {
             return AuthResponse.signupRequired();
         }
 
@@ -63,7 +64,11 @@ public class AuthService {
         Optional<User> found =
                 userRepository.findByProviderAndProviderId(request.provider(), userInfo.providerId());
         if (found.isPresent()) {
-            return issueTokens(found.get(), true);
+            User existing = found.get();
+            if (existing.isWithdrawn()) {
+                existing.reactivate(userInfo.name());
+            }
+            return issueTokens(existing, true);
         }
 
         User user = userRepository.save(User.builder()
