@@ -284,6 +284,34 @@ class NotificationServiceTest {
     }
 
     @Test
+    void 푸시_문구는_디자인_확정_문구를_따른다() {
+        // given: 모임 7에 멤버 1 (설정 전체 on, 미참여)
+        User user = userWithPrefs(null);
+        given(membershipRepository.findByGroupIdAndLeftAtIsNull(7L))
+                .willReturn(List.of(member(7L, 1L)));
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
+
+        // when: 4종 알림 생성
+        notificationService.createNewCycle(7L, "마라탕 모임", 55L);
+        notificationService.createCycleCompleted(7L, "마라탕 모임", 55L);
+        notificationService.createMemberJoin(7L, "마라탕 모임", "지원", 3L);
+        notificationService.createDeadline(7L, "마라탕 모임", 55L, LocalDateTime.now());
+
+        // then: 디자인(피그마 알림 리스트) 확정 문구 그대로
+        ArgumentCaptor<String> title = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
+        verify(fcmService, org.mockito.Mockito.times(4)).sendTo(
+                eq(user), title.capture(), body.capture(), org.mockito.ArgumentMatchers.anyMap());
+        assertThat(title.getAllValues()).containsExactly(
+                "새 따라찍기 시작", "따라찍기 완료", "모임 참여", "마감 임박");
+        assertThat(body.getAllValues()).containsExactly(
+                "'마라탕 모임'에서 새 따라찍기가 시작됐어요!",
+                "'마라탕 모임'에서 따라찍기가 완료되었어요!",
+                "지원님이 '마라탕 모임' 모임에 합류했어요",
+                "'마라탕 모임' 따라찍기가 1시간 후 마감돼요. 아직 안찍었죠?");
+    }
+
+    @Test
     void 마감_알림은_같은_회차에_이미_생성했으면_중복_생성하지_않는다() {
         // given: 55번 회차의 DEADLINE 알림이 이미 존재 (스케줄러가 1분마다 재호출하는 상황)
         given(notificationRepository.existsByTypeAndPayloadContaining(

@@ -142,10 +142,10 @@ public class NotificationService {
     /** 알림 타입별 푸시 제목. */
     private String pushTitle(NotificationType type) {
         return switch (type) {
-            case NEW_CYCLE -> "📸 새로운 따라찍기 시작!";
-            case CYCLE_COMPLETED -> "🎉 따라찍기 마감";
-            case MEMBER_JOIN -> "👋 새 멤버 합류";
-            case DEADLINE -> "⏰ 마감 1시간 전";
+            case NEW_CYCLE -> "새 따라찍기 시작";
+            case CYCLE_COMPLETED -> "따라찍기 완료";
+            case MEMBER_JOIN -> "모임 참여";
+            case DEADLINE -> "마감 임박";
             default -> "따라 알림";   // 2차 타입 대비
         };
     }
@@ -154,11 +154,11 @@ public class NotificationService {
     private String pushBody(NotificationType type, Map<String, Object> payload) {
         String groupName = String.valueOf(payload.getOrDefault("groupName", "모임"));
         return switch (type) {
-            case NEW_CYCLE -> groupName + "에서 새 따라찍기가 시작됐어요. 24시간 안에 참여해보세요!";
-            case CYCLE_COMPLETED -> groupName + "의 따라찍기가 끝났어요. 결과를 확인해보세요!";
-            case MEMBER_JOIN -> payload.getOrDefault("actorNickname", "친구") + "님이 " + groupName + "에 합류했어요.";
-            case DEADLINE -> groupName + "의 따라찍기가 곧 마감돼요. 지금 참여하세요!";
-            default -> groupName + "에 새로운 소식이 있어요.";
+            case NEW_CYCLE -> "'" + groupName + "'에서 새 따라찍기가 시작됐어요!";
+            case CYCLE_COMPLETED -> "'" + groupName + "'에서 따라찍기가 완료되었어요!";
+            case MEMBER_JOIN -> payload.getOrDefault("actorNickname", "친구") + "님이 '" + groupName + "' 모임에 합류했어요";
+            case DEADLINE -> "'" + groupName + "' 따라찍기가 1시간 후 마감돼요. 아직 안찍었죠?";
+            default -> "'" + groupName + "'에 새로운 소식이 있어요.";
         };
     }
 
