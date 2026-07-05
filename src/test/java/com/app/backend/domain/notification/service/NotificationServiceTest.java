@@ -1,7 +1,5 @@
 package com.app.backend.domain.notification.service;
 
-import com.app.backend.domain.cycle.entity.Cycle;
-import com.app.backend.domain.cycle.repository.CycleRepository;
 import com.app.backend.domain.group.entity.Membership;
 import com.app.backend.domain.group.entity.MembershipRole;
 import com.app.backend.domain.group.repository.MembershipRepository;
@@ -9,6 +7,8 @@ import com.app.backend.domain.notification.dto.NotificationListResponse;
 import com.app.backend.domain.notification.entity.Notification;
 import com.app.backend.domain.notification.entity.NotificationType;
 import com.app.backend.domain.notification.repository.NotificationRepository;
+import com.app.backend.domain.shot.entity.Shot;
+import com.app.backend.domain.shot.entity.ShotType;
 import com.app.backend.domain.shot.repository.ShotRepository;
 import com.app.backend.domain.user.entity.AuthProvider;
 import com.app.backend.domain.user.entity.User;
@@ -57,9 +57,6 @@ class NotificationServiceTest {
     @Mock
     private FcmService fcmService;
 
-    @Mock
-    private CycleRepository cycleRepository;
-
     @Captor
     private ArgumentCaptor<Collection<NotificationType>> typesCaptor;
 
@@ -75,28 +72,16 @@ class NotificationServiceTest {
         notificationService = new NotificationService(
                 notificationRepository, objectMapper,
                 membershipRepository, userRepository, shotRepository, fcmService,
-                cycleRepository, "ddara-images", "ap-northeast-2");
+                "ddara-images", "ap-northeast-2");
     }
 
-    // 스타터 프로필 이미지가 담긴 회차 (starterUserId 연결용)
-    private Cycle cycleStartedBy(Long starterUserId) {
-        return Cycle.builder()
-                .groupId(7L)
-                .cycleNumber(1)
-                .topic("주제")
-                .starterUserId(starterUserId)
-                .startedAt(LocalDateTime.now())
-                .deadlineAt(LocalDateTime.now().plusHours(24))
-                .build();
-    }
-
-    // 프로필 이미지 URL을 가진 유저
-    private User userWithImage(String imageUrl) {
-        return User.builder()
-                .provider(AuthProvider.KAKAO)
-                .providerId("s")
-                .name("스타터")
-                .profileImageUrl(imageUrl)
+    // 회차의 스타터 원본 가이드샷 (imageUrl 지정)
+    private Shot starterShot(String imageUrl) {
+        return Shot.builder()
+                .cycleId(55L)
+                .userId(9L)
+                .type(ShotType.STARTER)
+                .imageUrl(imageUrl)
                 .build();
     }
 
@@ -420,35 +405,36 @@ class NotificationServiceTest {
                 org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyMap());
     }
 
-    // ===== 알림 사진(imageUrl) 테스트 — #87 =====
+    // ===== 알림 사진(imageUrl) 테스트 — #87·#93 =====
+
+    private static final String STARTER_SHOT_URL =
+            "https://ddara-images.s3.ap-northeast-2.amazonaws.com/shots/guide.jpg";
 
     @Test
-    void 회차시작_알림_payload에는_스타터의_프로필_이미지가_담긴다() {
-        // given: 모임 7 멤버 1(수신자), 회차 55의 스타터는 9번(프로필 있음)
+    void 회차시작_알림_payload에는_스타터의_원본_가이드샷_URL이_담긴다() {
+        // given: 모임 7 멤버 1(수신자), 회차 55의 스타터 원본 가이드샷 존재
         given(membershipRepository.findByGroupIdAndLeftAtIsNull(7L))
                 .willReturn(List.of(member(7L, 1L)));
         given(userRepository.findById(1L)).willReturn(Optional.of(userWithPrefs(null)));
-        given(cycleRepository.findById(55L)).willReturn(Optional.of(cycleStartedBy(9L)));
-        given(userRepository.findById(9L)).willReturn(Optional.of(
-                userWithImage("https://ddara-images.s3.ap-northeast-2.amazonaws.com/profiles/starter.jpg")));
+        given(shotRepository.findByCycleIdAndType(55L, ShotType.STARTER))
+                .willReturn(Optional.of(starterShot(STARTER_SHOT_URL)));
 
         // when
         notificationService.createNewCycle(7L, "마라탕 모임", 55L);
 
-        // then: payload.imageUrl = 스타터 프로필 URL
+        // then: payload.imageUrl = 스타터 원본 가이드샷 URL
         verify(notificationRepository).save(notificationCaptor.capture());
         assertThat(notificationCaptor.getValue().getPayload())
-                .contains("\"imageUrl\":\"https://ddara-images.s3.ap-northeast-2.amazonaws.com/profiles/starter.jpg\"");
+                .contains("\"imageUrl\":\"" + STARTER_SHOT_URL + "\"");
     }
 
     @Test
-    void 따라찍기완료_알림_payload에도_스타터의_프로필_이미지가_담긴다() {
+    void 따라찍기완료_알림_payload에도_스타터의_원본_가이드샷_URL이_담긴다() {
         given(membershipRepository.findByGroupIdAndLeftAtIsNull(7L))
                 .willReturn(List.of(member(7L, 1L)));
         given(userRepository.findById(1L)).willReturn(Optional.of(userWithPrefs(null)));
-        given(cycleRepository.findById(55L)).willReturn(Optional.of(cycleStartedBy(9L)));
-        given(userRepository.findById(9L)).willReturn(Optional.of(
-                userWithImage("https://ddara-images.s3.ap-northeast-2.amazonaws.com/profiles/starter.jpg")));
+        given(shotRepository.findByCycleIdAndType(55L, ShotType.STARTER))
+                .willReturn(Optional.of(starterShot(STARTER_SHOT_URL)));
 
         // when
         notificationService.createCycleCompleted(7L, "마라탕 모임", 55L);
@@ -456,21 +442,21 @@ class NotificationServiceTest {
         // then
         verify(notificationRepository).save(notificationCaptor.capture());
         assertThat(notificationCaptor.getValue().getPayload())
-                .contains("\"imageUrl\":\"https://ddara-images.s3.ap-northeast-2.amazonaws.com/profiles/starter.jpg\"");
+                .contains("\"imageUrl\":\"" + STARTER_SHOT_URL + "\"");
     }
 
     @Test
-    void 스타터가_프로필_이미지가_없으면_imageUrl은_null이다() {
+    void 스타터_원본샷이_없으면_imageUrl은_null이다() {
         given(membershipRepository.findByGroupIdAndLeftAtIsNull(7L))
                 .willReturn(List.of(member(7L, 1L)));
         given(userRepository.findById(1L)).willReturn(Optional.of(userWithPrefs(null)));
-        given(cycleRepository.findById(55L)).willReturn(Optional.of(cycleStartedBy(9L)));
-        given(userRepository.findById(9L)).willReturn(Optional.of(userWithImage(null)));
+        given(shotRepository.findByCycleIdAndType(55L, ShotType.STARTER))
+                .willReturn(Optional.empty());
 
         // when
         notificationService.createNewCycle(7L, "마라탕 모임", 55L);
 
-        // then: imageUrl은 null (프론트가 기본 아바타 표시)
+        // then: imageUrl은 null (프론트가 기본 표시)
         verify(notificationRepository).save(notificationCaptor.capture());
         assertThat(notificationCaptor.getValue().getPayload()).contains("\"imageUrl\":null");
     }
