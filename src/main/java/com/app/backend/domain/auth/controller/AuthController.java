@@ -1,5 +1,6 @@
 package com.app.backend.domain.auth.controller;
 
+import com.app.backend.domain.auth.dto.AppleLoginRequest;
 import com.app.backend.domain.auth.dto.AuthResponse;
 import com.app.backend.domain.auth.dto.LogoutRequest;
 import com.app.backend.domain.auth.dto.RefreshRequest;
@@ -32,6 +33,11 @@ public class AuthController {
     @PostMapping("/google")
     public AuthResponse googleLogin(@Valid @RequestBody SocialLoginRequest request) {
         return authService.login(AuthProvider.GOOGLE, request);
+    }
+
+    @PostMapping("/apple")
+    public AuthResponse appleLogin(@Valid @RequestBody AppleLoginRequest request) {
+        return authService.login(AuthProvider.APPLE, new SocialLoginRequest(request.idToken()));
     }
 
     @PostMapping("/signup")
