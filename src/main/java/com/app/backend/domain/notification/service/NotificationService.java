@@ -1,6 +1,5 @@
 package com.app.backend.domain.notification.service;
 
-import com.app.backend.domain.cycle.repository.CycleRepository;
 import com.app.backend.domain.group.entity.Membership;
 import com.app.backend.domain.group.repository.MembershipRepository;
 import com.app.backend.domain.notification.dto.NotificationItem;
@@ -8,6 +7,8 @@ import com.app.backend.domain.notification.dto.NotificationListResponse;
 import com.app.backend.domain.notification.entity.Notification;
 import com.app.backend.domain.notification.entity.NotificationType;
 import com.app.backend.domain.notification.repository.NotificationRepository;
+import com.app.backend.domain.shot.entity.Shot;
+import com.app.backend.domain.shot.entity.ShotType;
 import com.app.backend.domain.shot.repository.ShotRepository;
 import com.app.backend.domain.user.dto.NotificationSettingsResponse;
 import com.app.backend.domain.user.entity.User;
@@ -43,7 +44,6 @@ public class NotificationService {
     private final UserRepository userRepository;
     private final ShotRepository shotRepository;
     private final FcmService fcmService;
-    private final CycleRepository cycleRepository;
 
     /** 모임 관련 알림(모임참여·마감임박)에 쓰는 앱 로고 S3 URL. UploadService와 동일한 형식으로 조합. */
     private final String logoUrl;
@@ -54,7 +54,6 @@ public class NotificationService {
                                UserRepository userRepository,
                                ShotRepository shotRepository,
                                FcmService fcmService,
-                               CycleRepository cycleRepository,
                                @Value("${aws.s3.bucket}") String bucket,
                                @Value("${aws.s3.region}") String region) {
         this.notificationRepository = notificationRepository;
@@ -63,7 +62,6 @@ public class NotificationService {
         this.userRepository = userRepository;
         this.shotRepository = shotRepository;
         this.fcmService = fcmService;
-        this.cycleRepository = cycleRepository;
         this.logoUrl = "https://" + bucket + ".s3." + region + ".amazonaws.com/assets/ddara-logo.png";
     }
 
@@ -77,7 +75,7 @@ public class NotificationService {
         payload.put("groupId", groupId);
         payload.put("groupName", groupName);
         payload.put("cycleId", cycleId);
-        payload.put("imageUrl", starterProfileImageUrl(cycleId));   // 개인 관련 → 스타터 프로필
+        payload.put("imageUrl", starterShotImageUrl(cycleId));   // 개인 관련 → 스타터 원본 가이드샷
         notifyEach(activeMemberIds(groupId), NotificationType.NEW_CYCLE, payload);
     }
 
@@ -88,7 +86,7 @@ public class NotificationService {
         payload.put("groupId", groupId);
         payload.put("groupName", groupName);
         payload.put("cycleId", cycleId);
-        payload.put("imageUrl", starterProfileImageUrl(cycleId));   // 개인 관련 → 스타터 프로필
+        payload.put("imageUrl", starterShotImageUrl(cycleId));   // 개인 관련 → 스타터 원본 가이드샷
         notifyEach(activeMemberIds(groupId), NotificationType.CYCLE_COMPLETED, payload);
     }
 
@@ -127,16 +125,15 @@ public class NotificationService {
     }
 
     /**
-     * 회차 스타터가 직접 올린 프로필 이미지 URL. 개인 관련 알림(회차시작·따라찍기완료)에 씀.
-     * 회차/스타터/프로필이 없으면 null → 프론트가 기본 아바타 표시.
+     * 회차 스타터가 시작 때 올린 원본 가이드샷(따라 찍을 사진) URL. 개인 관련 알림(회차시작·따라찍기완료)에 씀.
+     * 해당 회차의 STARTER shot이 없으면 null.
      */
-    private String starterProfileImageUrl(Long cycleId) {
+    private String starterShotImageUrl(Long cycleId) {
         if (cycleId == null) {
             return null;
         }
-        return cycleRepository.findById(cycleId)
-                .flatMap(cycle -> userRepository.findById(cycle.getStarterUserId()))
-                .map(User::getProfileImageUrl)
+        return shotRepository.findByCycleIdAndType(cycleId, ShotType.STARTER)
+                .map(Shot::getImageUrl)
                 .orElse(null);
     }
 
