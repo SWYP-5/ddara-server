@@ -7,6 +7,7 @@ import com.app.backend.domain.group.entity.Group;
 import com.app.backend.domain.group.entity.Membership;
 import com.app.backend.domain.group.repository.GroupRepository;
 import com.app.backend.domain.group.repository.MembershipRepository;
+import com.app.backend.domain.notification.service.NotificationService;
 import com.app.backend.domain.shot.dto.ShotListResponse;
 import com.app.backend.domain.shot.dto.ShotResponse;
 import com.app.backend.domain.shot.dto.ShotUploadRequest;
@@ -35,17 +36,20 @@ public class ShotService {
     private final MembershipRepository membershipRepository;
     private final ShotRepository shotRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     public ShotService(CycleRepository cycleRepository,
                        GroupRepository groupRepository,
                        MembershipRepository membershipRepository,
                        ShotRepository shotRepository,
-                       UserRepository userRepository) {
+                       UserRepository userRepository,
+                       NotificationService notificationService) {
         this.cycleRepository = cycleRepository;
         this.groupRepository = groupRepository;
         this.membershipRepository = membershipRepository;
         this.shotRepository = shotRepository;
         this.userRepository = userRepository;
+        this.notificationService = notificationService;
     }
 
     @Transactional
@@ -76,11 +80,15 @@ public class ShotService {
                         .imageUrl(request.imageUrl())
                         .build()));
 
-        // 전원 업로드 시 자동 마감
+        // 전원 업로드 시 자동 마감 (24h 자동마감과 함께 마감되는 2가지 경우 중 하나)
         long activeMembers = membershipRepository.countByGroupIdAndLeftAtIsNull(cycle.getGroupId());
         long shotCount = shotRepository.countByCycleIdAndDeletedAtIsNull(cycleId);
         if (shotCount >= activeMembers) {
             cycle.complete();
+            // 조기 마감도 24h 자동마감과 동일하게 모임 멤버 전원에게 마감 알림 발송 (#85)
+            String groupName = groupRepository.findById(cycle.getGroupId())
+                    .map(Group::getName).orElse("모임");
+            notificationService.createCycleCompleted(cycle.getGroupId(), groupName, cycle.getId());
         }
 
         return ShotResponse.from(shot);
