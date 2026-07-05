@@ -1,5 +1,6 @@
 package com.app.backend.domain.notification.service;
 
+import com.app.backend.domain.cycle.repository.CycleRepository;
 import com.app.backend.domain.group.entity.Membership;
 import com.app.backend.domain.group.repository.MembershipRepository;
 import com.app.backend.domain.notification.dto.NotificationItem;
@@ -15,6 +16,7 @@ import com.app.backend.global.exception.CustomException;
 import com.app.backend.global.exception.ErrorCode;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,19 +43,28 @@ public class NotificationService {
     private final UserRepository userRepository;
     private final ShotRepository shotRepository;
     private final FcmService fcmService;
+    private final CycleRepository cycleRepository;
+
+    /** 모임 관련 알림(모임참여·마감임박)에 쓰는 앱 로고 S3 URL. UploadService와 동일한 형식으로 조합. */
+    private final String logoUrl;
 
     public NotificationService(NotificationRepository notificationRepository,
                                ObjectMapper objectMapper,
                                MembershipRepository membershipRepository,
                                UserRepository userRepository,
                                ShotRepository shotRepository,
-                               FcmService fcmService) {
+                               FcmService fcmService,
+                               CycleRepository cycleRepository,
+                               @Value("${aws.s3.bucket}") String bucket,
+                               @Value("${aws.s3.region}") String region) {
         this.notificationRepository = notificationRepository;
         this.objectMapper = objectMapper;
         this.membershipRepository = membershipRepository;
         this.userRepository = userRepository;
         this.shotRepository = shotRepository;
         this.fcmService = fcmService;
+        this.cycleRepository = cycleRepository;
+        this.logoUrl = "https://" + bucket + ".s3." + region + ".amazonaws.com/assets/ddara-logo.png";
     }
 
     // ===== 알림 생성(INSERT) 내부 인터페이스 — 회차/모임 흐름(오지원)에서 호출 (부록 B) =====
@@ -66,6 +77,7 @@ public class NotificationService {
         payload.put("groupId", groupId);
         payload.put("groupName", groupName);
         payload.put("cycleId", cycleId);
+        payload.put("imageUrl", starterProfileImageUrl(cycleId));   // 개인 관련 → 스타터 프로필
         notifyEach(activeMemberIds(groupId), NotificationType.NEW_CYCLE, payload);
     }
 
@@ -76,6 +88,7 @@ public class NotificationService {
         payload.put("groupId", groupId);
         payload.put("groupName", groupName);
         payload.put("cycleId", cycleId);
+        payload.put("imageUrl", starterProfileImageUrl(cycleId));   // 개인 관련 → 스타터 프로필
         notifyEach(activeMemberIds(groupId), NotificationType.CYCLE_COMPLETED, payload);
     }
 
@@ -89,6 +102,7 @@ public class NotificationService {
         payload.put("groupId", groupId);
         payload.put("groupName", groupName);
         payload.put("actorNickname", actorNickname);
+        payload.put("imageUrl", logoUrl);   // 모임 관련 → 앱 로고
         notifyEach(recipients, NotificationType.MEMBER_JOIN, payload);
     }
 
@@ -108,7 +122,22 @@ public class NotificationService {
         payload.put("groupName", groupName);
         payload.put("cycleId", cycleId);
         payload.put("deadlineAt", deadlineAt.toString());
+        payload.put("imageUrl", logoUrl);   // 모임 관련 → 앱 로고
         notifyEach(recipients, NotificationType.DEADLINE, payload);
+    }
+
+    /**
+     * 회차 스타터가 직접 올린 프로필 이미지 URL. 개인 관련 알림(회차시작·따라찍기완료)에 씀.
+     * 회차/스타터/프로필이 없으면 null → 프론트가 기본 아바타 표시.
+     */
+    private String starterProfileImageUrl(Long cycleId) {
+        if (cycleId == null) {
+            return null;
+        }
+        return cycleRepository.findById(cycleId)
+                .flatMap(cycle -> userRepository.findById(cycle.getStarterUserId()))
+                .map(User::getProfileImageUrl)
+                .orElse(null);
     }
 
     private List<Long> activeMemberIds(Long groupId) {
