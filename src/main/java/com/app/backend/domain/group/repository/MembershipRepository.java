@@ -35,4 +35,7 @@ public interface MembershipRepository extends JpaRepository<Membership, Membersh
 
     // 모임 완전 삭제 시 멤버십 일괄 삭제
     void deleteByGroupId(Long groupId);
+
+    // 탈퇴 사용자 완전 삭제 시 그 사용자의 멤버십 일괄 삭제 (U-05)
+    void deleteByUserId(Long userId);
 }

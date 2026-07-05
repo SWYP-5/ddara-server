@@ -1,6 +1,8 @@
 package com.app.backend.domain.user.service;
 
 import com.app.backend.domain.auth.repository.RefreshTokenRepository;
+import com.app.backend.domain.group.repository.MembershipRepository;
+import com.app.backend.domain.notification.repository.NotificationRepository;
 import com.app.backend.domain.user.dto.NotificationSettingsRequest;
 import com.app.backend.domain.user.dto.NotificationSettingsResponse;
 import com.app.backend.domain.user.dto.ProfileImageResponse;
@@ -16,11 +18,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -34,6 +40,12 @@ class UserServiceTest {
     @Mock
     private RefreshTokenRepository refreshTokenRepository;
 
+    @Mock
+    private NotificationRepository notificationRepository;
+
+    @Mock
+    private MembershipRepository membershipRepository;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     // 우리 S3 버킷의 profiles/ 경로 URL (테스트 값)
@@ -46,6 +58,7 @@ class UserServiceTest {
     void setUp() {
         userService = new UserService(
                 userRepository, objectMapper, refreshTokenRepository,
+                notificationRepository, membershipRepository,
                 "ddara-images", "ap-northeast-2");
     }
 
@@ -242,13 +255,48 @@ class UserServiceTest {
         // when
         userService.withdraw(1L);
 
-        // then: soft delete + 익명화
+        // then: soft delete + 익명화 (데이터는 5일 보존 — 행 자체는 남는다)
         assertThat(user.getDeletedAt()).isNotNull();
         assertThat(user.getName()).isEqualTo("탈퇴한사용자");
         assertThat(user.getEmail()).isNull();
         assertThat(user.getProfileImageUrl()).isNull();
-        // then: refresh token 폐기
+        // then: 같은 소셜 계정으로 신규가입할 수 있도록 provider_id의 UNIQUE 자리를 비운다
+        assertThat(user.getProviderId()).isNotEqualTo("kakao-123");
+        // then: refresh token 폐기(세션 즉시 종료)
         verify(refreshTokenRepository).deleteByUserId(1L);
+        // then: 알림·멤버십은 아직 지우지 않는다(5일 보존 후 일괄 삭제)
+        verify(notificationRepository, never()).deleteByUserId(1L);
+    }
+
+    @Test
+    void 탈퇴한_사용자의_정보를_조회하면_USER_NOT_FOUND_예외를_던진다() {
+        // given: soft delete된 유저 (탈퇴 직후 남은 access token으로 접근하는 상황)
+        User user = createUser();
+        user.withdraw(LocalDateTime.now());
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
+
+        // when & then
+        assertThatThrownBy(() -> userService.getMyInfo(1L))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_FOUND);
+    }
+
+    @Test
+    void 탈퇴_보존기간이_지난_사용자는_관련데이터와_함께_완전_삭제한다() {
+        // given: 보존기간(5일)이 지나 완전 삭제 대상인 탈퇴 유저 (id=10)
+        User expired = createUser();
+        expired.withdraw(LocalDateTime.now().minusDays(6));
+        ReflectionTestUtils.setField(expired, "id", 10L);
+        given(userRepository.findByDeletedAtBefore(any())).willReturn(List.of(expired));
+
+        // when
+        userService.purgeWithdrawnUsers();
+
+        // then: 알림·멤버십·사용자 행까지 물리 삭제
+        verify(notificationRepository).deleteByUserId(10L);
+        verify(membershipRepository).deleteByUserId(10L);
+        verify(userRepository).delete(expired);
     }
 
     @Test

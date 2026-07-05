@@ -28,4 +28,7 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     @Modifying(clearAutomatically = true)
     @Query("update Notification n set n.readAt = :now where n.userId = :userId and n.readAt is null")
     int markAllAsRead(@Param("userId") Long userId, @Param("now") LocalDateTime now);
+
+    // 탈퇴 사용자 완전 삭제 시 그 사용자의 알림 일괄 삭제 (U-05)
+    void deleteByUserId(Long userId);
 }

@@ -1,6 +1,8 @@
 package com.app.backend.domain.user.service;
 
 import com.app.backend.domain.auth.repository.RefreshTokenRepository;
+import com.app.backend.domain.group.repository.MembershipRepository;
+import com.app.backend.domain.notification.repository.NotificationRepository;
 import com.app.backend.domain.user.dto.NotificationSettingsRequest;
 import com.app.backend.domain.user.dto.NotificationSettingsResponse;
 import com.app.backend.domain.user.dto.ProfileImageResponse;
@@ -20,20 +22,29 @@ import java.time.LocalDateTime;
 @Service
 public class UserService {
 
+    // 탈퇴 후 데이터 보존 기간(일). 이 기간이 지나면 완전 삭제한다. (U-05)
+    private static final long WITHDRAWAL_RETENTION_DAYS = 5;
+
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final NotificationRepository notificationRepository;
+    private final MembershipRepository membershipRepository;
     // 프로필 이미지로 허용할 S3 URL 접두사 (우리 버킷의 profiles/ 경로만)
     private final String profileImageUrlPrefix;
 
     public UserService(UserRepository userRepository,
                        ObjectMapper objectMapper,
                        RefreshTokenRepository refreshTokenRepository,
+                       NotificationRepository notificationRepository,
+                       MembershipRepository membershipRepository,
                        @Value("${aws.s3.bucket}") String bucket,
                        @Value("${aws.s3.region}") String region) {
         this.userRepository = userRepository;
         this.objectMapper = objectMapper;
         this.refreshTokenRepository = refreshTokenRepository;
+        this.notificationRepository = notificationRepository;
+        this.membershipRepository = membershipRepository;
         this.profileImageUrlPrefix =
                 "https://" + bucket + ".s3." + region + ".amazonaws.com/profiles/";
     }
@@ -42,6 +53,10 @@ public class UserService {
     public UserInfoResponse getMyInfo(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        // 탈퇴한(soft delete) 사용자는 남은 access token으로도 조회 불가 — 없는 사용자로 취급
+        if (user.isWithdrawn()) {
+            throw new CustomException(ErrorCode.USER_NOT_FOUND);
+        }
         return UserInfoResponse.from(user);
     }
 
@@ -122,7 +137,23 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        user.withdraw(LocalDateTime.now());        // soft delete + 익명화
-        refreshTokenRepository.deleteByUserId(userId);   // refresh token 폐기
+        // soft delete + 익명화 + provider_id 자리 비움(재가입 가능). 데이터(알림·멤버십)는 5일 보존.
+        user.withdraw(LocalDateTime.now());
+        // refresh token은 보안상 즉시 폐기(세션 종료)
+        refreshTokenRepository.deleteByUserId(userId);
+    }
+
+    /**
+     * 탈퇴 후 보존기간({@value #WITHDRAWAL_RETENTION_DAYS}일)이 지난 사용자를 완전 삭제한다.
+     * 사용자 행과 함께 남아 있던 알림·멤버십도 물리 삭제한다. (스케줄러가 매일 호출 — U-05)
+     */
+    @Transactional
+    public void purgeWithdrawnUsers() {
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(WITHDRAWAL_RETENTION_DAYS);
+        for (User user : userRepository.findByDeletedAtBefore(cutoff)) {
+            notificationRepository.deleteByUserId(user.getId());
+            membershipRepository.deleteByUserId(user.getId());
+            userRepository.delete(user);
+        }
     }
 }
