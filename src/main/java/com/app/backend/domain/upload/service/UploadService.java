@@ -29,8 +29,13 @@ public class UploadService {
     // purpose → S3 폴더 경로
     private static final Map<String, String> PURPOSE_TO_DIR = Map.of(
             "shot", "shots",
-            "profile", "profiles"
+            "profile", "profiles",
+            "asset", "assets"
     );
+
+    // 고정 자산(앱 로고)은 랜덤 UUID가 아니라 알림 코드(#87)가 참조하는 고정 key로 업로드한다.
+    private static final String ASSET_PURPOSE = "asset";
+    private static final String LOGO_KEY = "assets/ddara-logo.png";
 
     private final S3Presigner s3Presigner;
     private final String bucket;
@@ -50,9 +55,11 @@ public class UploadService {
             throw new CustomException(ErrorCode.UNSUPPORTED_IMAGE_TYPE);
         }
 
-        // 충돌 없는 고유 key (uploads/{uuid}.{ext})
+        // asset(앱 로고)은 고정 key, 그 외(shot/profile)는 충돌 없는 고유 key({dir}/{uuid}.{ext})
         String dir = PURPOSE_TO_DIR.get(request.purpose());
-        String key = dir + "/" + UUID.randomUUID() + "." + ext;
+        String key = ASSET_PURPOSE.equals(request.purpose())
+                ? LOGO_KEY
+                : dir + "/" + UUID.randomUUID() + "." + ext;
 
         PutObjectRequest objectRequest = PutObjectRequest.builder()
                 .bucket(bucket)
