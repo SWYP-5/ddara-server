@@ -94,22 +94,24 @@ public class User {
         this.fcmToken = null;
     }
 
-    /** 회원 탈퇴 — soft delete + 개인정보 익명화. (U-05) */
+    /**
+     * 회원 탈퇴 — soft delete + 개인정보 익명화. 데이터는 5일간 보존 후 완전 삭제된다. (U-05)
+     *
+     * <p>같은 소셜 계정으로 다시 로그인하면 <b>신규가입</b>이 되도록,
+     * provider_id에 표식을 붙여 UNIQUE(provider, provider_id) 자리를 비운다.
+     * 원본 값은 접두로 남겨 보존기간 동안 감사용으로 확인할 수 있으나,
+     * {@code findByProviderAndProviderId(provider, 원본id)}에는 더 이상 매칭되지 않는다.
+     */
     public void withdraw(LocalDateTime now) {
         this.deletedAt = now;
         this.name = "탈퇴한사용자";
         this.email = null;
         this.profileImageUrl = null;
+        this.providerId = this.providerId + "#withdrawn#" + now;
     }
 
     /** 탈퇴(soft delete) 상태인지 */
     public boolean isWithdrawn() {
         return deletedAt != null;
-    }
-
-    /** 탈퇴 계정을 같은 소셜로 재가입 시 재활성화 (deletedAt 해제 + 이름 소셜값으로 리셋) */
-    public void reactivate(String name) {
-        this.deletedAt = null;
-        this.name = name;
     }
 }

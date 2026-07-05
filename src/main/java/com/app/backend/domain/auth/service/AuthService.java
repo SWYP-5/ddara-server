@@ -49,8 +49,8 @@ public class AuthService {
         Optional<User> found =
                 userRepository.findByProviderAndProviderId(provider, userInfo.providerId());
 
-        // 탈퇴한 계정은 미가입으로 취급 (재가입 유도)
-        if (found.isEmpty() || found.get().isWithdrawn()) {
+        // 탈퇴한 계정은 탈퇴 시 provider_id를 비워두므로 여기서 조회되지 않는다 → 자연히 미가입(재가입=새 계정)
+        if (found.isEmpty()) {
             return AuthResponse.signupRequired();
         }
 
@@ -64,13 +64,10 @@ public class AuthService {
         Optional<User> found =
                 userRepository.findByProviderAndProviderId(request.provider(), userInfo.providerId());
         if (found.isPresent()) {
-            User existing = found.get();
-            if (existing.isWithdrawn()) {
-                existing.reactivate(userInfo.name());
-            }
-            return issueTokens(existing, true);
+            return issueTokens(found.get(), true);
         }
 
+        // 신규가입(탈퇴 후 재가입 포함). 탈퇴 계정은 provider_id를 비워둬 UNIQUE 충돌 없이 새 계정 생성.
         User user = userRepository.save(User.builder()
                 .provider(request.provider())
                 .providerId(userInfo.providerId())
