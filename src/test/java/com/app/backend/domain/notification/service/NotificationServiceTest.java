@@ -88,6 +88,8 @@ class NotificationServiceTest {
     private static final String LOGO_URL =
             "https://ddara-images.s3.ap-northeast-2.amazonaws.com/assets/ddara-logo.png";
 
+    private static final LocalDateTime DEADLINE_AT = LocalDateTime.of(2026, 7, 6, 21, 0);
+
     // 지정한 알림 설정(prefs JSON, null이면 전체 on)을 가진 유저
     private User userWithPrefs(String prefsJson) {
         User user = User.builder()
@@ -249,7 +251,7 @@ class NotificationServiceTest {
         given(userRepository.findById(2L)).willReturn(Optional.of(userWithPrefs(null)));
 
         // when
-        notificationService.createNewCycle(7L, "마라탕 모임", 55L);
+        notificationService.createNewCycle(7L, "마라탕 모임", 55L, DEADLINE_AT);
 
         // then: 멤버 2명 각각 NEW_CYCLE 알림 저장
         verify(notificationRepository, org.mockito.Mockito.times(2)).save(notificationCaptor.capture());
@@ -291,7 +293,7 @@ class NotificationServiceTest {
         given(userRepository.findById(2L)).willReturn(Optional.of(userWithPrefs(null)));
 
         // when
-        notificationService.createDeadline(7L, "마라탕 모임", 55L, LocalDateTime.now());
+        notificationService.createDeadline(7L, "마라탕 모임", 55L, LocalDateTime.now(), 60);
 
         // then: 미참여 2번에게만 생성
         verify(notificationRepository, org.mockito.Mockito.times(1)).save(notificationCaptor.capture());
@@ -308,10 +310,10 @@ class NotificationServiceTest {
         given(userRepository.findById(1L)).willReturn(Optional.of(user));
 
         // when: 4종 알림 생성
-        notificationService.createNewCycle(7L, "마라탕 모임", 55L);
+        notificationService.createNewCycle(7L, "마라탕 모임", 55L, DEADLINE_AT);
         notificationService.createCycleCompleted(7L, "마라탕 모임", 55L);
         notificationService.createMemberJoin(7L, "마라탕 모임", "지원", 3L);
-        notificationService.createDeadline(7L, "마라탕 모임", 55L, LocalDateTime.now());
+        notificationService.createDeadline(7L, "마라탕 모임", 55L, LocalDateTime.now(), 60);
 
         // then: 디자인(피그마 알림 리스트) 확정 문구 그대로
         ArgumentCaptor<String> title = ArgumentCaptor.forClass(String.class);
@@ -331,10 +333,10 @@ class NotificationServiceTest {
     void 마감_알림은_같은_회차에_이미_생성했으면_중복_생성하지_않는다() {
         // given: 55번 회차의 DEADLINE 알림이 이미 존재 (스케줄러가 1분마다 재호출하는 상황)
         given(notificationRepository.existsByTypeAndPayloadContaining(
-                NotificationType.DEADLINE, "\"cycleId\":55,")).willReturn(true);
+                NotificationType.DEADLINE, "\"cycleId\":55,\"remainingMinutes\":60,")).willReturn(true);
 
         // when
-        notificationService.createDeadline(7L, "마라탕 모임", 55L, LocalDateTime.now());
+        notificationService.createDeadline(7L, "마라탕 모임", 55L, LocalDateTime.now(), 60);
 
         // then: 수신자 계산도, 저장도 하지 않고 스킵
         verify(notificationRepository, never()).save(any());
@@ -350,7 +352,7 @@ class NotificationServiceTest {
                 "{\"allowAll\":false,\"activity\":{\"followShot\":true,\"deadlineVote\":true},\"etc\":{\"memberJoin\":true}}")));
 
         // when
-        notificationService.createNewCycle(7L, "마라탕 모임", 55L);
+        notificationService.createNewCycle(7L, "마라탕 모임", 55L, DEADLINE_AT);
 
         // then: 저장 안 됨
         verify(notificationRepository, never()).save(any());
@@ -365,7 +367,7 @@ class NotificationServiceTest {
                 "{\"allowAll\":true,\"activity\":{\"followShot\":false,\"deadlineVote\":true},\"etc\":{\"memberJoin\":true}}")));
 
         // when
-        notificationService.createNewCycle(7L, "마라탕 모임", 55L);
+        notificationService.createNewCycle(7L, "마라탕 모임", 55L, DEADLINE_AT);
 
         // then: followShot off라 생성 안 됨
         verify(notificationRepository, never()).save(any());
@@ -397,7 +399,7 @@ class NotificationServiceTest {
                 "{\"allowAll\":false,\"activity\":{\"followShot\":true,\"deadlineVote\":true},\"etc\":{\"memberJoin\":true}}")));
 
         // when
-        notificationService.createNewCycle(7L, "마라탕 모임", 55L);
+        notificationService.createNewCycle(7L, "마라탕 모임", 55L, DEADLINE_AT);
 
         // then: 인앱도 FCM도 없음
         verify(notificationRepository, never()).save(any());
@@ -420,7 +422,7 @@ class NotificationServiceTest {
                 .willReturn(Optional.of(starterShot(STARTER_SHOT_URL)));
 
         // when
-        notificationService.createNewCycle(7L, "마라탕 모임", 55L);
+        notificationService.createNewCycle(7L, "마라탕 모임", 55L, DEADLINE_AT);
 
         // then: payload.imageUrl = 스타터 원본 가이드샷 URL
         verify(notificationRepository).save(notificationCaptor.capture());
@@ -454,11 +456,27 @@ class NotificationServiceTest {
                 .willReturn(Optional.empty());
 
         // when
-        notificationService.createNewCycle(7L, "마라탕 모임", 55L);
+        notificationService.createNewCycle(7L, "마라탕 모임", 55L, DEADLINE_AT);
 
         // then: imageUrl은 null (프론트가 기본 표시)
         verify(notificationRepository).save(notificationCaptor.capture());
         assertThat(notificationCaptor.getValue().getPayload()).contains("\"imageUrl\":null");
+    }
+
+    @Test
+    void 회차시작_알림_payload에는_마감시각이_담긴다() {
+        // given
+        given(membershipRepository.findByGroupIdAndLeftAtIsNull(7L))
+                .willReturn(List.of(member(7L, 1L)));
+        given(userRepository.findById(1L)).willReturn(Optional.of(userWithPrefs(null)));
+        given(shotRepository.findByCycleIdAndType(55L, ShotType.STARTER)).willReturn(Optional.empty());
+
+        // when: 마감 2026-07-06T21:00
+        notificationService.createNewCycle(7L, "마라탕 모임", 55L, LocalDateTime.of(2026, 7, 6, 21, 0));
+
+        // then: payload에 deadlineAt 포함
+        verify(notificationRepository).save(notificationCaptor.capture());
+        assertThat(notificationCaptor.getValue().getPayload()).contains("\"deadlineAt\":\"2026-07-06T21:00\"");
     }
 
     @Test
@@ -484,7 +502,7 @@ class NotificationServiceTest {
         given(userRepository.findById(1L)).willReturn(Optional.of(userWithPrefs(null)));
 
         // when
-        notificationService.createDeadline(7L, "마라탕 모임", 55L, LocalDateTime.now());
+        notificationService.createDeadline(7L, "마라탕 모임", 55L, LocalDateTime.now(), 60);
 
         // then
         verify(notificationRepository).save(notificationCaptor.capture());
