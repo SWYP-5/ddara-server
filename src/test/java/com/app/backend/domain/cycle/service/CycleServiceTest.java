@@ -82,7 +82,7 @@ class CycleServiceTest {
         cycleService.createCycle(1L, 7L, new CreateCycleRequest("점프샷", "https://img.example/1.jpg"));
 
         // then
-        verify(notificationService).createNewCycle(eq(7L), eq("마라탕 모임"), any());
+        verify(notificationService).createNewCycle(eq(7L), eq("마라탕 모임"), any(), any());
     }
 
     @Test
@@ -103,9 +103,9 @@ class CycleServiceTest {
     }
 
     @Test
-    void 마감_1시간_전_회차에는_마감임박_알림을_생성한다() {
-        // given: 마감까지 30분 남은 진행 중 회차
-        Cycle closing = cycle(7L, LocalDateTime.now().plusMinutes(30));
+    void 마감_45분_전이면_60분_단계_알림만_생성한다() {
+        // given: 마감까지 45분 남은 진행 중 회차 (60분 단계 대상, 30/5/1분은 아직)
+        Cycle closing = cycle(7L, LocalDateTime.now().plusMinutes(45));
         given(cycleRepository.findByStatusAndDeadlineAtBetween(
                 eq(CycleStatus.IN_PROGRESS), any(), any()))
                 .willReturn(List.of(closing));
@@ -114,8 +114,10 @@ class CycleServiceTest {
         // when
         cycleService.notifyUpcomingDeadlines();
 
-        // then
+        // then: 60분 단계만 발송, 30분 단계는 아직 아님
         verify(notificationService)
-                .createDeadline(eq(7L), eq("마라탕 모임"), any(), eq(closing.getDeadlineAt()));
+                .createDeadline(eq(7L), eq("마라탕 모임"), any(), eq(closing.getDeadlineAt()), eq(60));
+        verify(notificationService, org.mockito.Mockito.never())
+                .createDeadline(any(), any(), any(), any(), eq(30));
     }
 }

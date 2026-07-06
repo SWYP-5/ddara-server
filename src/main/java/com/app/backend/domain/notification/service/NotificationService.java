@@ -70,11 +70,12 @@ public class NotificationService {
 
     /** 회차 시작 → 모임 멤버 전원. */
     @Transactional
-    public void createNewCycle(Long groupId, String groupName, Long cycleId) {
+    public void createNewCycle(Long groupId, String groupName, Long cycleId, LocalDateTime deadlineAt) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("groupId", groupId);
         payload.put("groupName", groupName);
         payload.put("cycleId", cycleId);
+        payload.put("deadlineAt", deadlineAt.toString());   // 마감시각
         payload.put("imageUrl", starterShotImageUrl(cycleId));   // 개인 관련 → 스타터 원본 가이드샷
         notifyEach(activeMemberIds(groupId), NotificationType.NEW_CYCLE, payload);
     }
@@ -104,12 +105,17 @@ public class NotificationService {
         notifyEach(recipients, NotificationType.MEMBER_JOIN, payload);
     }
 
-    /** 마감 1시간 전(CycleScheduler가 매분 호출) → 아직 인증샷을 올리지 않은 미참여 멤버. */
+    /**
+     * 마감 임박(CycleScheduler가 매분 호출) → 아직 인증샷을 올리지 않은 미참여 멤버.
+     * remainingMinutes = 남은 시간 단계(60/30/5/1분). 같은 회차·같은 단계는 1회만 발송.
+     */
     @Transactional
-    public void createDeadline(Long groupId, String groupName, Long cycleId, LocalDateTime deadlineAt) {
-        // 스케줄러가 1분마다 재호출하므로, 같은 회차에 이미 생성했으면 스킵(중복 발송 방지)
+    public void createDeadline(Long groupId, String groupName, Long cycleId,
+                               LocalDateTime deadlineAt, int remainingMinutes) {
+        // 스케줄러가 1분마다 재호출하므로, 같은 회차·같은 단계에 이미 생성했으면 스킵(중복 발송 방지)
         if (notificationRepository.existsByTypeAndPayloadContaining(
-                NotificationType.DEADLINE, "\"cycleId\":" + cycleId + ",")) {
+                NotificationType.DEADLINE,
+                "\"cycleId\":" + cycleId + ",\"remainingMinutes\":" + remainingMinutes + ",")) {
             return;
         }
         List<Long> recipients = activeMemberIds(groupId).stream()
@@ -119,6 +125,7 @@ public class NotificationService {
         payload.put("groupId", groupId);
         payload.put("groupName", groupName);
         payload.put("cycleId", cycleId);
+        payload.put("remainingMinutes", remainingMinutes);
         payload.put("deadlineAt", deadlineAt.toString());
         payload.put("imageUrl", logoUrl);   // 모임 관련 → 앱 로고
         notifyEach(recipients, NotificationType.DEADLINE, payload);
@@ -183,7 +190,11 @@ public class NotificationService {
             case NEW_CYCLE -> "'" + groupName + "'에서 새 따라찍기가 시작됐어요!";
             case CYCLE_COMPLETED -> "'" + groupName + "'에서 따라찍기가 완료되었어요!";
             case MEMBER_JOIN -> payload.getOrDefault("actorNickname", "친구") + "님이 '" + groupName + "' 모임에 합류했어요";
-            case DEADLINE -> "'" + groupName + "' 따라찍기가 1시간 후 마감돼요. 아직 안찍었죠?";
+            case DEADLINE -> {
+                int remaining = ((Number) payload.getOrDefault("remainingMinutes", 60)).intValue();
+                String left = remaining >= 60 ? (remaining / 60) + "시간" : remaining + "분";
+                yield "'" + groupName + "' 따라찍기가 " + left + " 후 마감돼요. 아직 안찍었죠?";
+            }
             default -> "'" + groupName + "'에 새로운 소식이 있어요.";
         };
     }
