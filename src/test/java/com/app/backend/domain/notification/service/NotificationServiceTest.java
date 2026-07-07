@@ -474,9 +474,41 @@ class NotificationServiceTest {
         // when: 마감 2026-07-06T21:00
         notificationService.createNewCycle(7L, "마라탕 모임", 55L, LocalDateTime.of(2026, 7, 6, 21, 0));
 
-        // then: payload에 deadlineAt 포함
+        // then: payload에 deadlineAt 포함 (KST 오프셋 +09:00)
         verify(notificationRepository).save(notificationCaptor.capture());
-        assertThat(notificationCaptor.getValue().getPayload()).contains("\"deadlineAt\":\"2026-07-06T21:00\"");
+        assertThat(notificationCaptor.getValue().getPayload()).contains("\"deadlineAt\":\"2026-07-06T21:00+09:00\"");
+    }
+
+    @Test
+    void 알림목록의_readAt은_KST_오프셋이_붙어_반환된다() {
+        // given: 2026-07-06 20:00에 읽은 알림
+        Notification n = memberJoinNotification();
+        n.markAsRead(LocalDateTime.of(2026, 7, 6, 20, 0));
+        given(notificationRepository.findByUserIdAndTypeInOrderByCreatedAtDesc(
+                eq(1L), any(), any(Pageable.class))).willReturn(List.of(n));
+        given(notificationRepository.countByUserIdAndReadAtIsNull(1L)).willReturn(0L);
+
+        // when
+        NotificationListResponse response = notificationService.getNotifications(1L, "all", 30);
+
+        // then: +09:00 오프셋 포함
+        assertThat(response.items().get(0).readAt().toString()).isEqualTo("2026-07-06T20:00+09:00");
+    }
+
+    @Test
+    void 응답_JSON_직렬화시_시각에_KST_오프셋이_찍힌다() throws Exception {
+        // given: 앱과 동일한 Jackson 설정 (JavaTimeModule + ISO 문자열)
+        ObjectMapper mapper = new ObjectMapper().findAndRegisterModules()
+                .disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        var item = new com.app.backend.domain.notification.dto.NotificationItem(
+                1L, "MEMBER_JOIN", Map.of(), null,
+                java.time.OffsetDateTime.of(2026, 7, 6, 20, 0, 0, 0, java.time.ZoneOffset.ofHours(9)));
+
+        // when
+        String json = mapper.writeValueAsString(item);
+
+        // then: createdAt에 +09:00이 붙어 나감 (프론트가 UTC로 오해 안 하도록)
+        assertThat(json).contains("2026-07-06T20:00:00+09:00");
     }
 
     @Test
