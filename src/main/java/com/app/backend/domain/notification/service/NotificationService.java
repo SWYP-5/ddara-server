@@ -247,14 +247,17 @@ public class NotificationService {
 
     @Transactional(readOnly = true)
     public NotificationListResponse getNotifications(Long userId, String category, int size) {
+        // category(all/activity/etc)를 실제 알림 type 집합으로 변환
         Collection<NotificationType> types = resolveTypes(category);
 
+        // 내(userId) 알림 중 해당 type들만, 최신순으로 size개 조회 → 화면용 NotificationItem으로 변환
         List<NotificationItem> items = notificationRepository
                 .findByUserIdAndTypeInOrderByCreatedAtDesc(userId, types, PageRequest.of(0, size))
                 .stream()
-                .map(this::toItem)
+                .map(this::toItem)   // 알림 엔티티 → 응답 아이템(payload JSON 파싱 + 시각 +09:00 변환)
                 .toList();
 
+        // 안 읽은 알림 총 개수(뱃지용) — 필터와 무관하게 전체 기준
         long unreadCount = notificationRepository.countByUserIdAndReadAtIsNull(userId);
         return new NotificationListResponse(items, unreadCount);
     }
@@ -277,26 +280,31 @@ public class NotificationService {
         notificationRepository.markAllAsRead(userId, LocalDateTime.now());
     }
 
+    // category 문자열 → 조회할 알림 type 집합
     private Collection<NotificationType> resolveTypes(String category) {
         if ("activity".equalsIgnoreCase(category)) {
-            return ACTIVITY_TYPES;
+            return ACTIVITY_TYPES;   // 활동: NEW_CYCLE·CYCLE_COMPLETED·DEADLINE
         }
         if ("etc".equalsIgnoreCase(category)) {
-            return ETC_TYPES;
+            return ETC_TYPES;        // 기타: MEMBER_JOIN
         }
-        return EnumSet.allOf(NotificationType.class);   // all(기본)
+        return EnumSet.allOf(NotificationType.class);   // all(기본): 전체 type
     }
 
+    // 알림 엔티티 1건 → 응답용 NotificationItem 1건으로 변환
     private NotificationItem toItem(Notification n) {
-        Object payload;
+        Object payload;   // DB엔 payload가 JSON "문자열"로 저장돼 있어서, 응답 땐 진짜 JSON 객체로 다시 파싱
         try {
             payload = objectMapper.readValue(n.getPayload(), Object.class);
         } catch (JsonProcessingException e) {
-            payload = Map.of();   // 깨진 payload는 빈 객체로
+            payload = Map.of();   // 혹시 payload가 깨져 있으면 빈 객체로(에러 대신)
         }
         return new NotificationItem(
-                n.getId(), n.getType().name(), payload,
-                toKstOffset(n.getReadAt()), toKstOffset(n.getCreatedAt()));
+                n.getId(),                       // 알림 id
+                n.getType().name(),              // enum → 문자열 (예: "MEMBER_JOIN")
+                payload,                         // 위에서 파싱한 payload 객체
+                toKstOffset(n.getReadAt()),      // 읽은 시각 → +09:00 붙여서
+                toKstOffset(n.getCreatedAt()));  // 생성 시각 → +09:00 붙여서
     }
 
     /** LocalDateTime(KST 벽시계)을 KST 오프셋(+09:00)이 붙은 OffsetDateTime으로 변환. null 허용. */
