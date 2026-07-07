@@ -23,6 +23,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
@@ -37,6 +39,9 @@ public class NotificationService {
             NotificationType.NEW_CYCLE, NotificationType.CYCLE_COMPLETED, NotificationType.DEADLINE);
     private static final Collection<NotificationType> ETC_TYPES = EnumSet.of(
             NotificationType.MEMBER_JOIN);
+
+    // 시각은 KST 오프셋(+09:00)을 붙여 내보낸다 (프론트가 UTC로 오해해 9시간 어긋나는 것 방지)
+    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
 
     private final NotificationRepository notificationRepository;
     private final ObjectMapper objectMapper;
@@ -75,7 +80,7 @@ public class NotificationService {
         payload.put("groupId", groupId);
         payload.put("groupName", groupName);
         payload.put("cycleId", cycleId);
-        payload.put("deadlineAt", deadlineAt.toString());   // 마감시각
+        payload.put("deadlineAt", deadlineAt.atZone(SEOUL).toOffsetDateTime().toString());   // 마감시각
         payload.put("imageUrl", starterShotImageUrl(cycleId));   // 개인 관련 → 스타터 원본 가이드샷
         notifyEach(activeMemberIds(groupId), NotificationType.NEW_CYCLE, payload);
     }
@@ -126,7 +131,7 @@ public class NotificationService {
         payload.put("groupName", groupName);
         payload.put("cycleId", cycleId);
         payload.put("remainingMinutes", remainingMinutes);
-        payload.put("deadlineAt", deadlineAt.toString());
+        payload.put("deadlineAt", deadlineAt.atZone(SEOUL).toOffsetDateTime().toString());
         payload.put("imageUrl", logoUrl);   // 모임 관련 → 앱 로고
         notifyEach(recipients, NotificationType.DEADLINE, payload);
     }
@@ -290,6 +295,12 @@ public class NotificationService {
             payload = Map.of();   // 깨진 payload는 빈 객체로
         }
         return new NotificationItem(
-                n.getId(), n.getType().name(), payload, n.getReadAt(), n.getCreatedAt());
+                n.getId(), n.getType().name(), payload,
+                toKstOffset(n.getReadAt()), toKstOffset(n.getCreatedAt()));
+    }
+
+    /** LocalDateTime(KST 벽시계)을 KST 오프셋(+09:00)이 붙은 OffsetDateTime으로 변환. null 허용. */
+    private OffsetDateTime toKstOffset(LocalDateTime ldt) {
+        return ldt == null ? null : ldt.atZone(SEOUL).toOffsetDateTime();
     }
 }
