@@ -18,6 +18,7 @@ import com.app.backend.domain.user.entity.User;
 import com.app.backend.domain.user.repository.UserRepository;
 import com.app.backend.global.exception.CustomException;
 import com.app.backend.global.exception.ErrorCode;
+import com.app.backend.global.util.NicknameOrder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -143,7 +144,9 @@ public class ShotService {
                             imageUrl,
                             uploadedAt);
                 })
-                .sorted(Comparator.comparing((ShotListResponse.MemberShot ms) -> !ms.isStarter()))
+                .sorted(Comparator
+                        .comparing((ShotListResponse.MemberShot ms) -> !ms.userId().equals(userId))
+                        .thenComparing(ShotListResponse.MemberShot::nickname, NicknameOrder.COMPARATOR))
                 .toList();
 
         String groupName = groupRepository.findById(cycle.getGroupId())
