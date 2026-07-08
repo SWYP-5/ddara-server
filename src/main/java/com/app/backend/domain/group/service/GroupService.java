@@ -27,14 +27,13 @@ import com.app.backend.domain.user.entity.User;
 import com.app.backend.domain.user.repository.UserRepository;
 import com.app.backend.global.exception.CustomException;
 import com.app.backend.global.exception.ErrorCode;
+import com.app.backend.global.util.NicknameOrder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.text.Collator;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
@@ -174,11 +173,10 @@ public class GroupService {
                         members.stream().map(Membership::getUserId).toList()).stream()
                 .collect(Collectors.toMap(User::getId, Function.identity()));
         
-        Collator collator = Collator.getInstance(Locale.KOREAN);
         List<MemberResponse> memberResponses = members.stream()
                 .sorted(Comparator
                         .comparing((Membership m) -> !m.getUserId().equals(userId))
-                        .thenComparing(Membership::getNickname, collator))
+                        .thenComparing(Membership::getNickname, NicknameOrder.COMPARATOR))
                 .map(membership -> MemberResponse.of(membership, usersById.get(membership.getUserId())))
                 .toList();
 
