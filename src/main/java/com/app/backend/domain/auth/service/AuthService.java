@@ -1,5 +1,6 @@
 package com.app.backend.domain.auth.service;
 
+import com.app.backend.domain.auth.apple.AppleAuthClient;
 import com.app.backend.domain.auth.dto.AuthResponse;
 import com.app.backend.domain.auth.dto.SignupRequest;
 import com.app.backend.domain.auth.dto.SocialLoginRequest;
@@ -14,6 +15,8 @@ import com.app.backend.domain.user.entity.User;
 import com.app.backend.domain.user.repository.UserRepository;
 import com.app.backend.global.exception.CustomException;
 import com.app.backend.global.exception.ErrorCode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,26 +27,31 @@ import java.util.Optional;
 @Service
 public class AuthService {
 
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
+
     private final OAuthClientResolver oAuthClientResolver;
     private final UserRepository userRepository;
     private final JwtProvider jwtProvider;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final AppleAuthClient appleAuthClient;
     private final long refreshTokenExpiration;
 
     public AuthService(OAuthClientResolver oAuthClientResolver,
                        UserRepository userRepository,
                        JwtProvider jwtProvider,
                        RefreshTokenRepository refreshTokenRepository,
+                       AppleAuthClient appleAuthClient,
                        @Value("${jwt.refresh-token-expiration}") long refreshTokenExpiration) {
         this.oAuthClientResolver = oAuthClientResolver;
         this.userRepository = userRepository;
         this.jwtProvider = jwtProvider;
         this.refreshTokenRepository = refreshTokenRepository;
+        this.appleAuthClient = appleAuthClient;
         this.refreshTokenExpiration = refreshTokenExpiration;
     }
 
     @Transactional
-    public AuthResponse login(AuthProvider provider, SocialLoginRequest request) {
+    public AuthResponse login(AuthProvider provider, SocialLoginRequest request, String appleAuthorizationCode) {
         OAuthUserInfo userInfo = oAuthClientResolver.resolve(provider).getUserInfo(request.accessToken());
 
         Optional<User> found =
@@ -54,7 +62,9 @@ public class AuthService {
             return AuthResponse.signupRequired();
         }
 
-        return issueTokens(found.get(), false);
+        User user = found.get();
+        storeAppleRefreshTokenIfPresent(provider, user, appleAuthorizationCode);
+        return issueTokens(user, false);
     }
 
     @Transactional
@@ -64,7 +74,9 @@ public class AuthService {
         Optional<User> found =
                 userRepository.findByProviderAndProviderId(request.provider(), userInfo.providerId());
         if (found.isPresent()) {
-            return issueTokens(found.get(), true);
+            User user = found.get();
+            storeAppleRefreshTokenIfPresent(request.provider(), user, request.appleAuthorizationCode());
+            return issueTokens(user, true);
         }
 
         // 신규가입(탈퇴 후 재가입 포함). 탈퇴 계정은 provider_id를 비워둬 UNIQUE 충돌 없이 새 계정 생성.
@@ -74,6 +86,7 @@ public class AuthService {
                 .name(userInfo.name())
                 .build());
 
+        storeAppleRefreshTokenIfPresent(request.provider(), user, request.appleAuthorizationCode());
         return issueTokens(user, true);
     }
 
@@ -96,6 +109,20 @@ public class AuthService {
         refreshTokenRepository.findByToken(refreshToken).ifPresent(saved ->
                 userRepository.findById(saved.getUserId()).ifPresent(User::clearFcmToken));
         refreshTokenRepository.deleteByToken(refreshToken);
+    }
+
+    // 애플 로그인이고 authorizationCode가 있으면 refresh_token으로 교환해 저장한다.
+    // 교환 실패는 로그인/가입을 막지 않도록 삼키고 경고만 남긴다(연동 해제용 토큰만 미확보).
+    private void storeAppleRefreshTokenIfPresent(AuthProvider provider, User user, String appleAuthorizationCode) {
+        if (provider != AuthProvider.APPLE || appleAuthorizationCode == null || appleAuthorizationCode.isBlank()) {
+            return;
+        }
+        try {
+            String refreshToken = appleAuthClient.exchangeCode(appleAuthorizationCode);
+            user.updateAppleRefreshToken(refreshToken);
+        } catch (Exception e) {
+            log.warn("애플 refresh_token 확보 실패(로그인은 계속 진행): userId={}", user.getId(), e);
+        }
     }
 
     private AuthResponse issueTokens(User user, boolean isNewUser) {

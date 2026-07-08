@@ -1,5 +1,6 @@
 package com.app.backend.domain.user.service;
 
+import com.app.backend.domain.auth.apple.AppleAuthClient;
 import com.app.backend.domain.auth.repository.RefreshTokenRepository;
 import com.app.backend.domain.group.repository.MembershipRepository;
 import com.app.backend.domain.notification.repository.NotificationRepository;
@@ -7,12 +8,15 @@ import com.app.backend.domain.user.dto.NotificationSettingsRequest;
 import com.app.backend.domain.user.dto.NotificationSettingsResponse;
 import com.app.backend.domain.user.dto.ProfileImageResponse;
 import com.app.backend.domain.user.dto.UserInfoResponse;
+import com.app.backend.domain.user.entity.AuthProvider;
 import com.app.backend.domain.user.entity.User;
 import com.app.backend.domain.user.repository.UserRepository;
 import com.app.backend.global.exception.CustomException;
 import com.app.backend.global.exception.ErrorCode;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +26,8 @@ import java.time.LocalDateTime;
 @Service
 public class UserService {
 
+    private static final Logger log = LoggerFactory.getLogger(UserService.class);
+
     // 탈퇴 후 데이터 보존 기간(일). 이 기간이 지나면 완전 삭제한다. (U-05)
     private static final long WITHDRAWAL_RETENTION_DAYS = 5;
 
@@ -30,6 +36,7 @@ public class UserService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final NotificationRepository notificationRepository;
     private final MembershipRepository membershipRepository;
+    private final AppleAuthClient appleAuthClient;
     // 프로필 이미지로 허용할 S3 URL 접두사 (우리 버킷의 profiles/ 경로만)
     private final String profileImageUrlPrefix;
 
@@ -38,6 +45,7 @@ public class UserService {
                        RefreshTokenRepository refreshTokenRepository,
                        NotificationRepository notificationRepository,
                        MembershipRepository membershipRepository,
+                       AppleAuthClient appleAuthClient,
                        @Value("${aws.s3.bucket}") String bucket,
                        @Value("${aws.s3.region}") String region) {
         this.userRepository = userRepository;
@@ -45,6 +53,7 @@ public class UserService {
         this.refreshTokenRepository = refreshTokenRepository;
         this.notificationRepository = notificationRepository;
         this.membershipRepository = membershipRepository;
+        this.appleAuthClient = appleAuthClient;
         this.profileImageUrlPrefix =
                 "https://" + bucket + ".s3." + region + ".amazonaws.com/profiles/";
     }
@@ -136,6 +145,15 @@ public class UserService {
     public void withdraw(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        // 애플 로그인 유저는 탈퇴 시 애플 연동 해제(revoke). 실패해도 탈퇴는 계속 진행.(App Store 심사 규정)
+        if (user.getProvider() == AuthProvider.APPLE && user.getAppleRefreshToken() != null) {
+            try {
+                appleAuthClient.revoke(user.getAppleRefreshToken());
+            } catch (Exception e) {
+                log.warn("애플 연동 해제 실패(탈퇴는 계속 진행): userId={}", userId, e);
+            }
+        }
 
         // soft delete + 익명화 + provider_id 자리 비움(재가입 가능). 데이터(알림·멤버십)는 5일 보존.
         user.withdraw(LocalDateTime.now());

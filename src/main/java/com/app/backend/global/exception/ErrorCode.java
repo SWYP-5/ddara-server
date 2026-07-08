@@ -12,6 +12,9 @@ public enum ErrorCode {
     INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "유효하지 않은 refresh token 입니다."),
     TERMS_NOT_AGREED(HttpStatus.BAD_REQUEST, "약관에 동의해야 합니다."),
     UNSUPPORTED_OAUTH_PROVIDER(HttpStatus.INTERNAL_SERVER_ERROR, "지원하지 않는 소셜 로그인 제공자입니다."),
+    APPLE_KEY_UNAVAILABLE(HttpStatus.INTERNAL_SERVER_ERROR, "애플 인증 키를 사용할 수 없습니다."),
+    APPLE_TOKEN_EXCHANGE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "애플 토큰 교환에 실패했습니다."),
+    APPLE_REVOKE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "애플 연동 해제에 실패했습니다."),
 
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."),
     INVALID_IMAGE_FILE(HttpStatus.BAD_REQUEST, "유효하지 않은 이미지입니다."),

@@ -56,6 +56,11 @@ public class User {
     @Column(name = "fcm_token", length = 255)
     private String fcmToken;
 
+    // 애플 로그인 refresh_token — 탈퇴 시 애플 연동 해제(revoke)에 사용. 애플 유저만 값 존재. (U-05)
+    // 보안상 로그·응답 DTO로 노출 금지.
+    @Column(name = "apple_refresh_token", length = 512)
+    private String appleRefreshToken;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -94,6 +99,16 @@ public class User {
         this.fcmToken = null;
     }
 
+    /** 애플 refresh_token 저장(덮어쓰기) — 애플 로그인 시. */
+    public void updateAppleRefreshToken(String appleRefreshToken) {
+        this.appleRefreshToken = appleRefreshToken;
+    }
+
+    /** 애플 refresh_token 제거. */
+    public void clearAppleRefreshToken() {
+        this.appleRefreshToken = null;
+    }
+
     /**
      * 회원 탈퇴 — soft delete + 개인정보 익명화. 데이터는 5일간 보존 후 완전 삭제된다. (U-05)
      *
@@ -108,6 +123,7 @@ public class User {
         this.email = null;
         this.profileImageUrl = null;
         this.providerId = this.providerId + "#withdrawn#" + now;
+        this.appleRefreshToken = null;
     }
 
     /** 탈퇴(soft delete) 상태인지 */
