@@ -162,17 +162,20 @@ public class NotificationService {
         String payloadJson = writePayload(payload);
         for (Long userId : userIds) {
             User user = userRepository.findById(userId).orElse(null);
-            if (user == null || !isAllowed(user.getNotificationPrefs(), type)) {
-                continue;   // 설정 off → 인앱·FCM 둘 다 발송 안 함
+            if (user == null) {
+                continue;
             }
+            // 인앱 알림은 알림 설정과 무관하게 항상 저장한다 — 설정을 꺼도 알림 목록엔 표시돼야 한다.
             notificationRepository.save(Notification.builder()
                     .userId(userId)
                     .type(type)
                     .payload(payloadJson)
                     .build());
-            // FCM 푸시 발송 — 실패해도 예외를 던지지 않으므로(FcmService 내부 처리)
-            // 위 인앱 저장은 항상 유지된다. 무효 토큰이면 FcmService가 user의 토큰을 비운다.
-            fcmService.sendTo(user, pushTitle(type), pushBody(type, payload), pushData(type, payload));
+            // 푸시(FCM)만 알림 설정을 따른다 — 꺼져 있으면 푸시는 발송하지 않는다.
+            // 실패해도 예외를 던지지 않으므로(FcmService 내부 처리) 위 인앱 저장은 항상 유지된다.
+            if (isAllowed(user.getNotificationPrefs(), type)) {
+                fcmService.sendTo(user, pushTitle(type), pushBody(type, payload), pushData(type, payload));
+            }
         }
     }
 

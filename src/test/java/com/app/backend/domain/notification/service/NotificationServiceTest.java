@@ -344,7 +344,7 @@ class NotificationServiceTest {
     }
 
     @Test
-    void 마스터_알림설정이_꺼져있으면_알림을_생성하지_않는다() {
+    void 마스터_알림설정이_꺼져있어도_인앱은_저장하고_푸시만_막는다() {
         // given: 멤버 1번이 마스터(allowAll) off
         given(membershipRepository.findByGroupIdAndLeftAtIsNull(7L))
                 .willReturn(List.of(member(7L, 1L)));
@@ -354,12 +354,14 @@ class NotificationServiceTest {
         // when
         notificationService.createNewCycle(7L, "마라탕 모임", 55L, DEADLINE_AT);
 
-        // then: 저장 안 됨
-        verify(notificationRepository, never()).save(any());
+        // then: 인앱 알림은 저장(목록엔 뜸), 푸시는 미발송
+        verify(notificationRepository).save(any());
+        verify(fcmService, never()).sendTo(any(), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyMap());
     }
 
     @Test
-    void 해당_타입_토글이_꺼져있으면_그_알림은_생성하지_않는다() {
+    void 해당_타입_토글이_꺼져있어도_인앱은_저장하고_푸시만_막는다() {
         // given: 멤버 1번이 followShot(따라찍기) off — NEW_CYCLE 대상 토글
         given(membershipRepository.findByGroupIdAndLeftAtIsNull(7L))
                 .willReturn(List.of(member(7L, 1L)));
@@ -369,8 +371,10 @@ class NotificationServiceTest {
         // when
         notificationService.createNewCycle(7L, "마라탕 모임", 55L, DEADLINE_AT);
 
-        // then: followShot off라 생성 안 됨
-        verify(notificationRepository, never()).save(any());
+        // then: followShot off여도 인앱 저장, 푸시만 미발송
+        verify(notificationRepository).save(any());
+        verify(fcmService, never()).sendTo(any(), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyMap());
     }
 
     @Test
@@ -387,23 +391,6 @@ class NotificationServiceTest {
         // then: 인앱 저장 + FCM 발송 요청 둘 다 수행
         verify(notificationRepository).save(any());
         verify(fcmService).sendTo(eq(user), org.mockito.ArgumentMatchers.anyString(),
-                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyMap());
-    }
-
-    @Test
-    void 알림설정이_꺼진_유저에게는_FCM도_발송하지_않는다() {
-        // given: 멤버 1번이 마스터(allowAll) off
-        given(membershipRepository.findByGroupIdAndLeftAtIsNull(7L))
-                .willReturn(List.of(member(7L, 1L)));
-        given(userRepository.findById(1L)).willReturn(Optional.of(userWithPrefs(
-                "{\"allowAll\":false,\"activity\":{\"followShot\":true,\"deadlineVote\":true},\"etc\":{\"memberJoin\":true}}")));
-
-        // when
-        notificationService.createNewCycle(7L, "마라탕 모임", 55L, DEADLINE_AT);
-
-        // then: 인앱도 FCM도 없음
-        verify(notificationRepository, never()).save(any());
-        verify(fcmService, never()).sendTo(any(), org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyMap());
     }
 
