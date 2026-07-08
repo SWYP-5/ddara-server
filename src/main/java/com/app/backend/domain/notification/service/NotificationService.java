@@ -23,6 +23,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
@@ -37,6 +39,9 @@ public class NotificationService {
             NotificationType.NEW_CYCLE, NotificationType.CYCLE_COMPLETED, NotificationType.DEADLINE);
     private static final Collection<NotificationType> ETC_TYPES = EnumSet.of(
             NotificationType.MEMBER_JOIN);
+
+    // 시각은 KST 오프셋(+09:00)을 붙여 내보낸다 (프론트가 UTC로 오해해 9시간 어긋나는 것 방지)
+    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
 
     private final NotificationRepository notificationRepository;
     private final ObjectMapper objectMapper;
@@ -75,7 +80,7 @@ public class NotificationService {
         payload.put("groupId", groupId);
         payload.put("groupName", groupName);
         payload.put("cycleId", cycleId);
-        payload.put("deadlineAt", deadlineAt.toString());   // 마감시각
+        payload.put("deadlineAt", deadlineAt.atZone(SEOUL).toOffsetDateTime().toString());   // 마감시각
         payload.put("imageUrl", starterShotImageUrl(cycleId));   // 개인 관련 → 스타터 원본 가이드샷
         notifyEach(activeMemberIds(groupId), NotificationType.NEW_CYCLE, payload);
     }
@@ -113,9 +118,8 @@ public class NotificationService {
     public void createDeadline(Long groupId, String groupName, Long cycleId,
                                LocalDateTime deadlineAt, int remainingMinutes) {
         // 스케줄러가 1분마다 재호출하므로, 같은 회차·같은 단계에 이미 생성했으면 스킵(중복 발송 방지)
-        if (notificationRepository.existsByTypeAndPayloadContaining(
-                NotificationType.DEADLINE,
-                "\"cycleId\":" + cycleId + ",\"remainingMinutes\":" + remainingMinutes + ",")) {
+        if (notificationRepository.existsDeadlineNotification(
+                NotificationType.DEADLINE.name(), cycleId, remainingMinutes)) {
             return;
         }
         List<Long> recipients = activeMemberIds(groupId).stream()
@@ -126,7 +130,7 @@ public class NotificationService {
         payload.put("groupName", groupName);
         payload.put("cycleId", cycleId);
         payload.put("remainingMinutes", remainingMinutes);
-        payload.put("deadlineAt", deadlineAt.toString());
+        payload.put("deadlineAt", deadlineAt.atZone(SEOUL).toOffsetDateTime().toString());
         payload.put("imageUrl", logoUrl);   // 모임 관련 → 앱 로고
         notifyEach(recipients, NotificationType.DEADLINE, payload);
     }
@@ -158,17 +162,20 @@ public class NotificationService {
         String payloadJson = writePayload(payload);
         for (Long userId : userIds) {
             User user = userRepository.findById(userId).orElse(null);
-            if (user == null || !isAllowed(user.getNotificationPrefs(), type)) {
-                continue;   // 설정 off → 인앱·FCM 둘 다 발송 안 함
+            if (user == null) {
+                continue;
             }
+            // 인앱 알림은 알림 설정과 무관하게 항상 저장한다 — 설정을 꺼도 알림 목록엔 표시돼야 한다.
             notificationRepository.save(Notification.builder()
                     .userId(userId)
                     .type(type)
                     .payload(payloadJson)
                     .build());
-            // FCM 푸시 발송 — 실패해도 예외를 던지지 않으므로(FcmService 내부 처리)
-            // 위 인앱 저장은 항상 유지된다. 무효 토큰이면 FcmService가 user의 토큰을 비운다.
-            fcmService.sendTo(user, pushTitle(type), pushBody(type, payload), pushData(type, payload));
+            // 푸시(FCM)만 알림 설정을 따른다 — 꺼져 있으면 푸시는 발송하지 않는다.
+            // 실패해도 예외를 던지지 않으므로(FcmService 내부 처리) 위 인앱 저장은 항상 유지된다.
+            if (isAllowed(user.getNotificationPrefs(), type)) {
+                fcmService.sendTo(user, pushTitle(type), pushBody(type, payload), pushData(type, payload));
+            }
         }
     }
 
@@ -242,14 +249,17 @@ public class NotificationService {
 
     @Transactional(readOnly = true)
     public NotificationListResponse getNotifications(Long userId, String category, int size) {
+        // category(all/activity/etc)를 실제 알림 type 집합으로 변환
         Collection<NotificationType> types = resolveTypes(category);
 
+        // 내(userId) 알림 중 해당 type들만, 최신순으로 size개 조회 → 화면용 NotificationItem으로 변환
         List<NotificationItem> items = notificationRepository
                 .findByUserIdAndTypeInOrderByCreatedAtDesc(userId, types, PageRequest.of(0, size))
                 .stream()
-                .map(this::toItem)
+                .map(this::toItem)   // 알림 엔티티 → 응답 아이템(payload JSON 파싱 + 시각 +09:00 변환)
                 .toList();
 
+        // 안 읽은 알림 총 개수(뱃지용) — 필터와 무관하게 전체 기준
         long unreadCount = notificationRepository.countByUserIdAndReadAtIsNull(userId);
         return new NotificationListResponse(items, unreadCount);
     }
@@ -272,24 +282,35 @@ public class NotificationService {
         notificationRepository.markAllAsRead(userId, LocalDateTime.now());
     }
 
+    // category 문자열 → 조회할 알림 type 집합
     private Collection<NotificationType> resolveTypes(String category) {
         if ("activity".equalsIgnoreCase(category)) {
-            return ACTIVITY_TYPES;
+            return ACTIVITY_TYPES;   // 활동: NEW_CYCLE·CYCLE_COMPLETED·DEADLINE
         }
         if ("etc".equalsIgnoreCase(category)) {
-            return ETC_TYPES;
+            return ETC_TYPES;        // 기타: MEMBER_JOIN
         }
-        return EnumSet.allOf(NotificationType.class);   // all(기본)
+        return EnumSet.allOf(NotificationType.class);   // all(기본): 전체 type
     }
 
+    // 알림 엔티티 1건 → 응답용 NotificationItem 1건으로 변환
     private NotificationItem toItem(Notification n) {
-        Object payload;
+        Object payload;   // DB엔 payload가 JSON "문자열"로 저장돼 있어서, 응답 땐 진짜 JSON 객체로 다시 파싱
         try {
             payload = objectMapper.readValue(n.getPayload(), Object.class);
         } catch (JsonProcessingException e) {
-            payload = Map.of();   // 깨진 payload는 빈 객체로
+            payload = Map.of();   // 혹시 payload가 깨져 있으면 빈 객체로(에러 대신)
         }
         return new NotificationItem(
-                n.getId(), n.getType().name(), payload, n.getReadAt(), n.getCreatedAt());
+                n.getId(),                       // 알림 id
+                n.getType().name(),              // enum → 문자열 (예: "MEMBER_JOIN")
+                payload,                         // 위에서 파싱한 payload 객체
+                toKstOffset(n.getReadAt()),      // 읽은 시각 → +09:00 붙여서
+                toKstOffset(n.getCreatedAt()));  // 생성 시각 → +09:00 붙여서
+    }
+
+    /** LocalDateTime(KST 벽시계)을 KST 오프셋(+09:00)이 붙은 OffsetDateTime으로 변환. null 허용. */
+    private OffsetDateTime toKstOffset(LocalDateTime ldt) {
+        return ldt == null ? null : ldt.atZone(SEOUL).toOffsetDateTime();
     }
 }

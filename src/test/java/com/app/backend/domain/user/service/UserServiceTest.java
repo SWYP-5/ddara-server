@@ -1,5 +1,6 @@
 package com.app.backend.domain.user.service;
 
+import com.app.backend.domain.auth.apple.AppleAuthClient;
 import com.app.backend.domain.auth.repository.RefreshTokenRepository;
 import com.app.backend.domain.group.repository.MembershipRepository;
 import com.app.backend.domain.notification.repository.NotificationRepository;
@@ -46,6 +47,9 @@ class UserServiceTest {
     @Mock
     private MembershipRepository membershipRepository;
 
+    @Mock
+    private AppleAuthClient appleAuthClient;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     // 우리 S3 버킷의 profiles/ 경로 URL (테스트 값)
@@ -58,7 +62,7 @@ class UserServiceTest {
     void setUp() {
         userService = new UserService(
                 userRepository, objectMapper, refreshTokenRepository,
-                notificationRepository, membershipRepository,
+                notificationRepository, membershipRepository, appleAuthClient,
                 "ddara-images", "ap-northeast-2");
     }
 

@@ -332,8 +332,8 @@ class NotificationServiceTest {
     @Test
     void 마감_알림은_같은_회차에_이미_생성했으면_중복_생성하지_않는다() {
         // given: 55번 회차의 DEADLINE 알림이 이미 존재 (스케줄러가 1분마다 재호출하는 상황)
-        given(notificationRepository.existsByTypeAndPayloadContaining(
-                NotificationType.DEADLINE, "\"cycleId\":55,\"remainingMinutes\":60,")).willReturn(true);
+        given(notificationRepository.existsDeadlineNotification(
+                NotificationType.DEADLINE.name(), 55L, 60)).willReturn(true);
 
         // when
         notificationService.createDeadline(7L, "마라탕 모임", 55L, LocalDateTime.now(), 60);
@@ -344,7 +344,7 @@ class NotificationServiceTest {
     }
 
     @Test
-    void 마스터_알림설정이_꺼져있으면_알림을_생성하지_않는다() {
+    void 마스터_알림설정이_꺼져있어도_인앱은_저장하고_푸시만_막는다() {
         // given: 멤버 1번이 마스터(allowAll) off
         given(membershipRepository.findByGroupIdAndLeftAtIsNull(7L))
                 .willReturn(List.of(member(7L, 1L)));
@@ -354,12 +354,14 @@ class NotificationServiceTest {
         // when
         notificationService.createNewCycle(7L, "마라탕 모임", 55L, DEADLINE_AT);
 
-        // then: 저장 안 됨
-        verify(notificationRepository, never()).save(any());
+        // then: 인앱 알림은 저장(목록엔 뜸), 푸시는 미발송
+        verify(notificationRepository).save(any());
+        verify(fcmService, never()).sendTo(any(), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyMap());
     }
 
     @Test
-    void 해당_타입_토글이_꺼져있으면_그_알림은_생성하지_않는다() {
+    void 해당_타입_토글이_꺼져있어도_인앱은_저장하고_푸시만_막는다() {
         // given: 멤버 1번이 followShot(따라찍기) off — NEW_CYCLE 대상 토글
         given(membershipRepository.findByGroupIdAndLeftAtIsNull(7L))
                 .willReturn(List.of(member(7L, 1L)));
@@ -369,8 +371,10 @@ class NotificationServiceTest {
         // when
         notificationService.createNewCycle(7L, "마라탕 모임", 55L, DEADLINE_AT);
 
-        // then: followShot off라 생성 안 됨
-        verify(notificationRepository, never()).save(any());
+        // then: followShot off여도 인앱 저장, 푸시만 미발송
+        verify(notificationRepository).save(any());
+        verify(fcmService, never()).sendTo(any(), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyMap());
     }
 
     @Test
@@ -387,23 +391,6 @@ class NotificationServiceTest {
         // then: 인앱 저장 + FCM 발송 요청 둘 다 수행
         verify(notificationRepository).save(any());
         verify(fcmService).sendTo(eq(user), org.mockito.ArgumentMatchers.anyString(),
-                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyMap());
-    }
-
-    @Test
-    void 알림설정이_꺼진_유저에게는_FCM도_발송하지_않는다() {
-        // given: 멤버 1번이 마스터(allowAll) off
-        given(membershipRepository.findByGroupIdAndLeftAtIsNull(7L))
-                .willReturn(List.of(member(7L, 1L)));
-        given(userRepository.findById(1L)).willReturn(Optional.of(userWithPrefs(
-                "{\"allowAll\":false,\"activity\":{\"followShot\":true,\"deadlineVote\":true},\"etc\":{\"memberJoin\":true}}")));
-
-        // when
-        notificationService.createNewCycle(7L, "마라탕 모임", 55L, DEADLINE_AT);
-
-        // then: 인앱도 FCM도 없음
-        verify(notificationRepository, never()).save(any());
-        verify(fcmService, never()).sendTo(any(), org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyMap());
     }
 
@@ -474,9 +461,41 @@ class NotificationServiceTest {
         // when: 마감 2026-07-06T21:00
         notificationService.createNewCycle(7L, "마라탕 모임", 55L, LocalDateTime.of(2026, 7, 6, 21, 0));
 
-        // then: payload에 deadlineAt 포함
+        // then: payload에 deadlineAt 포함 (KST 오프셋 +09:00)
         verify(notificationRepository).save(notificationCaptor.capture());
-        assertThat(notificationCaptor.getValue().getPayload()).contains("\"deadlineAt\":\"2026-07-06T21:00\"");
+        assertThat(notificationCaptor.getValue().getPayload()).contains("\"deadlineAt\":\"2026-07-06T21:00+09:00\"");
+    }
+
+    @Test
+    void 알림목록의_readAt은_KST_오프셋이_붙어_반환된다() {
+        // given: 2026-07-06 20:00에 읽은 알림
+        Notification n = memberJoinNotification();
+        n.markAsRead(LocalDateTime.of(2026, 7, 6, 20, 0));
+        given(notificationRepository.findByUserIdAndTypeInOrderByCreatedAtDesc(
+                eq(1L), any(), any(Pageable.class))).willReturn(List.of(n));
+        given(notificationRepository.countByUserIdAndReadAtIsNull(1L)).willReturn(0L);
+
+        // when
+        NotificationListResponse response = notificationService.getNotifications(1L, "all", 30);
+
+        // then: +09:00 오프셋 포함
+        assertThat(response.items().get(0).readAt().toString()).isEqualTo("2026-07-06T20:00+09:00");
+    }
+
+    @Test
+    void 응답_JSON_직렬화시_시각에_KST_오프셋이_찍힌다() throws Exception {
+        // given: 앱과 동일한 Jackson 설정 (JavaTimeModule + ISO 문자열)
+        ObjectMapper mapper = new ObjectMapper().findAndRegisterModules()
+                .disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        var item = new com.app.backend.domain.notification.dto.NotificationItem(
+                1L, "MEMBER_JOIN", Map.of(), null,
+                java.time.OffsetDateTime.of(2026, 7, 6, 20, 0, 0, 0, java.time.ZoneOffset.ofHours(9)));
+
+        // when
+        String json = mapper.writeValueAsString(item);
+
+        // then: createdAt에 +09:00이 붙어 나감 (프론트가 UTC로 오해 안 하도록)
+        assertThat(json).contains("2026-07-06T20:00:00+09:00");
     }
 
     @Test
