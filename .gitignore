@@ -29,6 +29,10 @@ firebase-service-account.json
 *firebase*.json
 src/main/resources/firebase/
 
+# 애플 로그인 개인키 .p8 (절대 커밋 금지)
+*.p8
+src/main/resources/apple/
+
 # 로그
 *.log
 logs/
