@@ -118,9 +118,8 @@ public class NotificationService {
     public void createDeadline(Long groupId, String groupName, Long cycleId,
                                LocalDateTime deadlineAt, int remainingMinutes) {
         // 스케줄러가 1분마다 재호출하므로, 같은 회차·같은 단계에 이미 생성했으면 스킵(중복 발송 방지)
-        if (notificationRepository.existsByTypeAndPayloadContaining(
-                NotificationType.DEADLINE,
-                "\"cycleId\":" + cycleId + ",\"remainingMinutes\":" + remainingMinutes + ",")) {
+        if (notificationRepository.existsDeadlineNotification(
+                NotificationType.DEADLINE.name(), cycleId, remainingMinutes)) {
             return;
         }
         List<Long> recipients = activeMemberIds(groupId).stream()

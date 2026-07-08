@@ -332,8 +332,8 @@ class NotificationServiceTest {
     @Test
     void 마감_알림은_같은_회차에_이미_생성했으면_중복_생성하지_않는다() {
         // given: 55번 회차의 DEADLINE 알림이 이미 존재 (스케줄러가 1분마다 재호출하는 상황)
-        given(notificationRepository.existsByTypeAndPayloadContaining(
-                NotificationType.DEADLINE, "\"cycleId\":55,\"remainingMinutes\":60,")).willReturn(true);
+        given(notificationRepository.existsDeadlineNotification(
+                NotificationType.DEADLINE.name(), 55L, 60)).willReturn(true);
 
         // when
         notificationService.createDeadline(7L, "마라탕 모임", 55L, LocalDateTime.now(), 60);
