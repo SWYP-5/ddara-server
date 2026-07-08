@@ -80,10 +80,12 @@ public class AuthService {
         }
 
         // 신규가입(탈퇴 후 재가입 포함). 탈퇴 계정은 provider_id를 비워둬 UNIQUE 충돌 없이 새 계정 생성.
+        // 애플은 최초 연동 1회만 이름을 제공하므로 재가입 시 토큰에 이름이 없을 수 있음 -> 임시 이름으로 가입
+        String name = (userInfo.name() == null || userInfo.name().isBlank()) ? "사용자" : userInfo.name();
         User user = userRepository.save(User.builder()
                 .provider(request.provider())
                 .providerId(userInfo.providerId())
-                .name(userInfo.name())
+                .name(name)
                 .build());
 
         storeAppleRefreshTokenIfPresent(request.provider(), user, request.appleAuthorizationCode());
