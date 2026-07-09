@@ -27,18 +27,17 @@ public class AuthController {
 
     @PostMapping("/kakao")
     public AuthResponse kakaoLogin(@Valid @RequestBody SocialLoginRequest request) {
-        return authService.login(AuthProvider.KAKAO, request, null);
+        return authService.login(AuthProvider.KAKAO, request);
     }
 
     @PostMapping("/google")
     public AuthResponse googleLogin(@Valid @RequestBody SocialLoginRequest request) {
-        return authService.login(AuthProvider.GOOGLE, request, null);
+        return authService.login(AuthProvider.GOOGLE, request);
     }
 
     @PostMapping("/apple")
     public AuthResponse appleLogin(@Valid @RequestBody AppleLoginRequest request) {
-        return authService.login(AuthProvider.APPLE,
-                new SocialLoginRequest(request.idToken()), request.appleAuthorizationCode());
+        return authService.login(AuthProvider.APPLE, new SocialLoginRequest(request.idToken()));
     }
 
     @PostMapping("/signup")

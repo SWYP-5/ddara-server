@@ -1,6 +1,5 @@
 package com.app.backend.domain.auth.service;
 
-import com.app.backend.domain.auth.apple.AppleAuthClient;
 import com.app.backend.domain.auth.dto.SignupRequest;
 import com.app.backend.domain.auth.entity.RefreshToken;
 import com.app.backend.domain.auth.jwt.JwtProvider;
@@ -43,16 +42,13 @@ class AuthServiceTest {
     @Mock
     private RefreshTokenRepository refreshTokenRepository;
 
-    @Mock
-    private AppleAuthClient appleAuthClient;
-
     private AuthService authService;
 
     @BeforeEach
     void setUp() {
         authService = new AuthService(
                 oAuthClientResolver, userRepository, jwtProvider,
-                refreshTokenRepository, appleAuthClient, 2_592_000_000L);
+                refreshTokenRepository, 2_592_000_000L);
     }
 
     @Test
@@ -101,7 +97,7 @@ class AuthServiceTest {
         given(userRepository.save(any(User.class))).willAnswer(inv -> inv.getArgument(0));
 
         // when
-        authService.signup(new SignupRequest(AuthProvider.KAKAO, "access-token", null, true));
+        authService.signup(new SignupRequest(AuthProvider.KAKAO, "access-token", true));
 
         // then: 기존(탈퇴) 계정 재활성화가 아니라 완전 새 계정 생성
         ArgumentCaptor<User> saved = ArgumentCaptor.forClass(User.class);
