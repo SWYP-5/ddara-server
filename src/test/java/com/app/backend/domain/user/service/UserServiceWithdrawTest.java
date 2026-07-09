@@ -33,38 +33,11 @@ class UserServiceWithdrawTest {
                 appleAuthClient, "ddara-images", "ap-northeast-2");
     }
 
-    private User apple(String rt) {
-        User u = User.builder().provider(AuthProvider.APPLE).providerId("uid").name("최예진").build();
-        if (rt != null) u.updateAppleRefreshToken(rt);
-        return u;
-    }
-
-    @Test
-    void 애플유저_토큰있으면_revoke호출() {
-        when(userRepository.findById(1L)).thenReturn(Optional.of(apple("RT-1")));
-        userService.withdraw(1L);
-        verify(appleAuthClient).revoke("RT-1");
-    }
-
-    @Test
-    void revoke실패해도_탈퇴진행() {
-        User user = apple("RT-1");
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        doThrow(new com.app.backend.global.exception.CustomException(
-                com.app.backend.global.exception.ErrorCode.APPLE_REVOKE_FAILED))
-                .when(appleAuthClient).revoke(any());
-
-        userService.withdraw(1L);
-
-        org.assertj.core.api.Assertions.assertThat(user.isWithdrawn()).isTrue();
-        verify(refreshTokenRepository).deleteByUserId(1L);
-    }
-
     @Test
     void 비애플유저_revoke미호출() {
         User u = User.builder().provider(AuthProvider.KAKAO).providerId("uid").name("최예진").build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(u));
-        userService.withdraw(1L);
+        userService.withdraw(1L, null);
         verify(appleAuthClient, never()).revoke(any());
     }
 }

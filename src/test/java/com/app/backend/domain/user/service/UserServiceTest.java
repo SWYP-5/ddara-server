@@ -257,7 +257,7 @@ class UserServiceTest {
         given(userRepository.findById(1L)).willReturn(Optional.of(user));
 
         // when
-        userService.withdraw(1L);
+        userService.withdraw(1L, null);
 
         // then: soft delete + 익명화 (데이터는 5일 보존 — 행 자체는 남는다)
         assertThat(user.getDeletedAt()).isNotNull();
@@ -309,7 +309,7 @@ class UserServiceTest {
         given(userRepository.findById(999L)).willReturn(Optional.empty());
 
         // when & then
-        assertThatThrownBy(() -> userService.withdraw(999L))
+        assertThatThrownBy(() -> userService.withdraw(999L, null))
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_FOUND);

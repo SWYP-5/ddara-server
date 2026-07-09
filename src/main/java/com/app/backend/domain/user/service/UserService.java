@@ -142,14 +142,15 @@ public class UserService {
     }
 
     @Transactional
-    public void withdraw(Long userId) {
+    public void withdraw(Long userId, String appleAuthorizationCode) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         // 애플 로그인 유저는 탈퇴 시 애플 연동 해제(revoke). 실패해도 탈퇴는 계속 진행.(App Store 심사 규정)
-        if (user.getProvider() == AuthProvider.APPLE && user.getAppleRefreshToken() != null) {
+        if (user.getProvider() == AuthProvider.APPLE
+                && appleAuthorizationCode != null && !appleAuthorizationCode.isBlank()) {
             try {
-                appleAuthClient.revoke(user.getAppleRefreshToken());
+                appleAuthClient.revoke(appleAuthClient.exchangeCode(appleAuthorizationCode));
             } catch (Exception e) {
                 log.warn("애플 연동 해제 실패(탈퇴는 계속 진행): userId={}", userId, e);
             }

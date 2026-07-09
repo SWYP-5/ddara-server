@@ -6,6 +6,7 @@ import com.app.backend.domain.user.dto.NotificationSettingsResponse;
 import com.app.backend.domain.user.dto.ProfileImageRequest;
 import com.app.backend.domain.user.dto.ProfileImageResponse;
 import com.app.backend.domain.user.dto.UserInfoResponse;
+import com.app.backend.domain.user.dto.WithdrawRequest;
 import com.app.backend.domain.user.service.UserService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -58,10 +59,12 @@ public class UserController {
     }
 
     // 회원 탈퇴 (U-05) — soft delete + 익명화 + 토큰 폐기
+    // 애플 유저는 탈퇴 직전 재인증으로 받은 appleAuthorizationCode를 바디로 보내면 연동 해제(revoke)까지 수행
     @DeleteMapping("/me")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void withdraw(@AuthenticationPrincipal Long userId) {
-        userService.withdraw(userId);
+    public void withdraw(@AuthenticationPrincipal Long userId,
+                         @RequestBody(required = false) WithdrawRequest request) {
+        userService.withdraw(userId, request != null ? request.appleAuthorizationCode() : null);
     }
 
     // FCM 토큰 등록 (U-06) — 유저당 1개, 덮어쓰기
