@@ -3,6 +3,7 @@ package com.app.backend.domain.user.service;
 import com.app.backend.domain.auth.apple.AppleAuthClient;
 import com.app.backend.domain.auth.repository.RefreshTokenRepository;
 import com.app.backend.domain.group.repository.MembershipRepository;
+import com.app.backend.domain.group.service.GroupService;
 import com.app.backend.domain.notification.repository.NotificationRepository;
 import com.app.backend.domain.user.dto.NotificationSettingsRequest;
 import com.app.backend.domain.user.dto.NotificationSettingsResponse;
@@ -36,6 +37,7 @@ public class UserService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final NotificationRepository notificationRepository;
     private final MembershipRepository membershipRepository;
+    private final GroupService groupService;
     private final AppleAuthClient appleAuthClient;
     // 프로필 이미지로 허용할 S3 URL 접두사 (우리 버킷의 profiles/ 경로만)
     private final String profileImageUrlPrefix;
@@ -45,6 +47,7 @@ public class UserService {
                        RefreshTokenRepository refreshTokenRepository,
                        NotificationRepository notificationRepository,
                        MembershipRepository membershipRepository,
+                       GroupService groupService,
                        AppleAuthClient appleAuthClient,
                        @Value("${aws.s3.bucket}") String bucket,
                        @Value("${aws.s3.region}") String region) {
@@ -53,6 +56,7 @@ public class UserService {
         this.refreshTokenRepository = refreshTokenRepository;
         this.notificationRepository = notificationRepository;
         this.membershipRepository = membershipRepository;
+        this.groupService = groupService;
         this.appleAuthClient = appleAuthClient;
         this.profileImageUrlPrefix =
                 "https://" + bucket + ".s3." + region + ".amazonaws.com/profiles/";
@@ -156,8 +160,12 @@ public class UserService {
             }
         }
 
+        LocalDateTime now = LocalDateTime.now();
         // soft delete + 익명화 + provider_id 자리 비움(재가입 가능). 데이터(알림·멤버십)는 5일 보존.
-        user.withdraw(LocalDateTime.now());
+        user.withdraw(now);
+        // 속한 모든 모임에서 나간 것으로 처리 — 멤버 목록·회차 참여 인원에서 제외되고,
+        // 마지막 멤버였다면 모임도 자동 삭제된다. (모임 나가기와 동일 규칙)
+        groupService.leaveAllGroupsOnWithdrawal(userId, now);
         // refresh token은 보안상 즉시 폐기(세션 종료)
         refreshTokenRepository.deleteByUserId(userId);
     }

@@ -220,12 +220,31 @@ public class GroupService {
                 .filter(Membership::isActive)
                 .orElseThrow(() -> new CustomException(ErrorCode.NOT_GROUP_MEMBER));
 
-        membership.leave(LocalDateTime.now());
-        
-        //모임 자동 삭제
+        LocalDateTime now = LocalDateTime.now();
+        membership.leave(now);
+        softDeleteGroupIfEmpty(groupId, now);
+    }
+
+    /**
+     * 회원 탈퇴 시 호출 — 유저가 속한 모든 활성 모임에서 나간 것으로 처리한다.
+     * 모임 나가기와 동일하게 나간시각(left_at)을 찍어 멤버 목록·회차 참여 인원에서 빠지게 하고,
+     * 그로 인해 활성 멤버가 0명이 된 모임은 자동 삭제(soft delete)한다.
+     * (사진 등 데이터는 지우지 않는다 — 탈퇴 유저 데이터는 5일 보존 후 별도 스케줄러가 정리)
+     */
+    @Transactional
+    public void leaveAllGroupsOnWithdrawal(Long userId, LocalDateTime now) {
+        List<Membership> memberships = membershipRepository.findByUserIdAndLeftAtIsNull(userId);
+        for (Membership membership : memberships) {
+            membership.leave(now);
+            softDeleteGroupIfEmpty(membership.getGroupId(), now);
+        }
+    }
+
+    // 모임에 활성 멤버가 하나도 없으면 모임을 soft delete (전원 나감/탈퇴 시 자동 삭제)
+    private void softDeleteGroupIfEmpty(Long groupId, LocalDateTime now) {
         if (membershipRepository.countByGroupIdAndLeftAtIsNull(groupId) == 0) {
             groupRepository.findById(groupId)
-                    .ifPresent(group -> group.softDelete(LocalDateTime.now()));
+                    .ifPresent(group -> group.softDelete(now));
         }
     }
 
