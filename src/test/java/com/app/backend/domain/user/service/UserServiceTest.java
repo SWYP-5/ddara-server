@@ -48,6 +48,9 @@ class UserServiceTest {
     private MembershipRepository membershipRepository;
 
     @Mock
+    private com.app.backend.domain.group.service.GroupService groupService;
+
+    @Mock
     private AppleAuthClient appleAuthClient;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -62,7 +65,7 @@ class UserServiceTest {
     void setUp() {
         userService = new UserService(
                 userRepository, objectMapper, refreshTokenRepository,
-                notificationRepository, membershipRepository, appleAuthClient,
+                notificationRepository, membershipRepository, groupService, appleAuthClient,
                 "ddara-images", "ap-northeast-2");
     }
 
