@@ -17,7 +17,6 @@ import com.app.backend.global.exception.CustomException;
 import com.app.backend.global.exception.ErrorCode;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,24 +49,18 @@ public class NotificationService {
     private final ShotRepository shotRepository;
     private final FcmService fcmService;
 
-    /** 모임 관련 알림(모임참여·마감임박)에 쓰는 앱 로고 S3 URL. UploadService와 동일한 형식으로 조합. */
-    private final String logoUrl;
-
     public NotificationService(NotificationRepository notificationRepository,
                                ObjectMapper objectMapper,
                                MembershipRepository membershipRepository,
                                UserRepository userRepository,
                                ShotRepository shotRepository,
-                               FcmService fcmService,
-                               @Value("${aws.s3.bucket}") String bucket,
-                               @Value("${aws.s3.region}") String region) {
+                               FcmService fcmService) {
         this.notificationRepository = notificationRepository;
         this.objectMapper = objectMapper;
         this.membershipRepository = membershipRepository;
         this.userRepository = userRepository;
         this.shotRepository = shotRepository;
         this.fcmService = fcmService;
-        this.logoUrl = "https://" + bucket + ".s3." + region + ".amazonaws.com/assets/ddara-logo.png";
     }
 
     // ===== 알림 생성(INSERT) 내부 인터페이스 — 회차/모임 흐름(오지원)에서 호출 (부록 B) =====
@@ -106,7 +99,7 @@ public class NotificationService {
         payload.put("groupId", groupId);
         payload.put("groupName", groupName);
         payload.put("actorNickname", actorNickname);
-        payload.put("imageUrl", logoUrl);   // 모임 관련 → 앱 로고
+        payload.put("imageUrl", null);   // 모임 관련 → 기본 아이콘 표시용 null
         notifyEach(recipients, NotificationType.MEMBER_JOIN, payload);
     }
 
@@ -131,7 +124,7 @@ public class NotificationService {
         payload.put("cycleId", cycleId);
         payload.put("remainingMinutes", remainingMinutes);
         payload.put("deadlineAt", deadlineAt.atZone(SEOUL).toOffsetDateTime().toString());
-        payload.put("imageUrl", logoUrl);   // 모임 관련 → 앱 로고
+        payload.put("imageUrl", null);   // 모임 관련 → 기본 아이콘 표시용 null
         notifyEach(recipients, NotificationType.DEADLINE, payload);
     }
 
@@ -210,7 +203,11 @@ public class NotificationService {
     private Map<String, String> pushData(NotificationType type, Map<String, Object> payload) {
         Map<String, String> data = new LinkedHashMap<>();
         data.put("type", type.name());
-        payload.forEach((k, v) -> data.put(k, String.valueOf(v)));
+        payload.forEach((k, v) -> {
+            if (v != null) {
+                data.put(k, String.valueOf(v));
+            }
+        });
         return data;
     }
 

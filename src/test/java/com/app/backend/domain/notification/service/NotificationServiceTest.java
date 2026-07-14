@@ -71,8 +71,7 @@ class NotificationServiceTest {
     void setUp() {
         notificationService = new NotificationService(
                 notificationRepository, objectMapper,
-                membershipRepository, userRepository, shotRepository, fcmService,
-                "ddara-images", "ap-northeast-2");
+                membershipRepository, userRepository, shotRepository, fcmService);
     }
 
     // 회차의 스타터 원본 가이드샷 (imageUrl 지정)
@@ -84,9 +83,6 @@ class NotificationServiceTest {
                 .imageUrl(imageUrl)
                 .build();
     }
-
-    private static final String LOGO_URL =
-            "https://ddara-images.s3.ap-northeast-2.amazonaws.com/assets/ddara-logo.png";
 
     private static final LocalDateTime DEADLINE_AT = LocalDateTime.of(2026, 7, 6, 21, 0);
 
@@ -499,7 +495,7 @@ class NotificationServiceTest {
     }
 
     @Test
-    void 모임참여_알림_payload에는_앱_로고_URL이_담긴다() {
+    void 모임참여_알림_payload의_imageUrl은_null이다() {
         given(membershipRepository.findByGroupIdAndLeftAtIsNull(7L))
                 .willReturn(List.of(member(7L, 1L)));
         given(userRepository.findById(1L)).willReturn(Optional.of(userWithPrefs(null)));
@@ -507,14 +503,14 @@ class NotificationServiceTest {
         // when
         notificationService.createMemberJoin(7L, "마라탕 모임", "지원", 3L);
 
-        // then: payload.imageUrl = 앱 로고 (스타터 조회 없음)
+        // then: payload.imageUrl = null (기본 아이콘 표시용)
         verify(notificationRepository).save(notificationCaptor.capture());
         assertThat(notificationCaptor.getValue().getPayload())
-                .contains("\"imageUrl\":\"" + LOGO_URL + "\"");
+                .contains("\"imageUrl\":null");
     }
 
     @Test
-    void 마감_알림_payload에도_앱_로고_URL이_담긴다() {
+    void 마감_알림_payload의_imageUrl도_null이다() {
         given(membershipRepository.findByGroupIdAndLeftAtIsNull(7L))
                 .willReturn(List.of(member(7L, 1L)));
         given(shotRepository.existsByCycleIdAndUserIdAndDeletedAtIsNull(55L, 1L)).willReturn(false);
@@ -526,7 +522,7 @@ class NotificationServiceTest {
         // then
         verify(notificationRepository).save(notificationCaptor.capture());
         assertThat(notificationCaptor.getValue().getPayload())
-                .contains("\"imageUrl\":\"" + LOGO_URL + "\"");
+                .contains("\"imageUrl\":null");
     }
 
     @Test
