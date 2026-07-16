@@ -105,6 +105,7 @@ public class CycleService {
                             cycle.getId(),
                             cycle.getTopic(),
                             thumbnailUrl,
+                            cycle.getStarterUserId(),
                             participantCount,
                             cycle.getStartedAt());
                 })
