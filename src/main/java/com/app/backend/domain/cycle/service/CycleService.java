@@ -79,8 +79,7 @@ public class CycleService {
                 .imageUrl(request.imageUrl())
                 .build());
 
-        // 회차 시작 → 모임 멤버 전원에게 인앱 알림 + FCM 푸시 (#77). payload에 마감시각 포함(#95)
-        notificationService.createNewCycle(groupId, group.getName(), cycle.getId(), cycle.getDeadlineAt());
+        notificationService.createNewCycle(groupId, group.getName(), cycle.getId(), userId, cycle.getDeadlineAt());
 
         return CycleCreateResponse.of(cycle, starterShot);
     }
@@ -106,6 +105,7 @@ public class CycleService {
                             cycle.getId(),
                             cycle.getTopic(),
                             thumbnailUrl,
+                            cycle.getStarterUserId(),
                             participantCount,
                             cycle.getStartedAt());
                 })
@@ -128,11 +128,9 @@ public class CycleService {
         return overdue.size();
     }
 
-    // 마감 임박 단계(분): 남은 시간이 이 값 이하가 되면 각 단계 1회씩 알림 (#95)
     private static final int[] DEADLINE_STAGES_MINUTES = {60, 30, 5, 1};
 
     // 마감 임박(1시간 내) 회차의 미참여 멤버에게 단계별(60/30/5/1분) 임박 알림 (스케줄러용)
-    // 단계별 1회 중복 차단은 NotificationService.createDeadline 내부에서 처리하므로 매분 호출해도 안전
     @Transactional
     public int notifyUpcomingDeadlines() {
         LocalDateTime now = LocalDateTime.now();

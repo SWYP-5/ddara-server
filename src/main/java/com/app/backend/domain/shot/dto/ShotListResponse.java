@@ -16,6 +16,7 @@ public record ShotListResponse(
             Long cycleId,
             Integer cycleNumber,
             String topic,
+            Long starterUserId,
             String starterNickname,
             String starterImageUrl,
             CycleStatus status,

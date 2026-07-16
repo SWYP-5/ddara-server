@@ -123,9 +123,13 @@ public class GroupService {
                             .map(c -> new CurrentCycleResponse(c.getId(), c.getTopic(), c.getDeadlineAt()))
                             .orElse(null);
 
-                    String thumbnailUrl = groupThumbnailUrl(group.getId());
+                    Cycle thumbnailCycle = latestCycle(group.getId());
+                    String thumbnailUrl = starterImageUrl(thumbnailCycle);
+                    Long thumbnailUserId =
+                            thumbnailUrl != null ? thumbnailCycle.getStarterUserId() : null;
 
-                    return GroupListItem.of(group, ownerNickname, memberCount, thumbnailUrl, currentCycle);
+                    return GroupListItem.of(group, ownerNickname, memberCount,
+                            thumbnailUrl, thumbnailUserId, currentCycle);
                 })
                 .sorted(Comparator.comparing(GroupListItem::createdAt))
                 .toList();
@@ -328,12 +332,11 @@ public class GroupService {
         return expired.size();
     }
 
-    private String groupThumbnailUrl(Long groupId) {
-        Cycle cycle = cycleRepository.findByGroupIdAndStatus(groupId, CycleStatus.IN_PROGRESS)
+    private Cycle latestCycle(Long groupId) {
+        return cycleRepository.findByGroupIdAndStatus(groupId, CycleStatus.IN_PROGRESS)
                 .orElseGet(() -> cycleRepository
                         .findTopByGroupIdAndStatusOrderByCycleNumberDesc(groupId, CycleStatus.DONE)
                         .orElse(null));
-        return starterImageUrl(cycle);
     }
 
     private String starterImageUrl(Cycle cycle) {

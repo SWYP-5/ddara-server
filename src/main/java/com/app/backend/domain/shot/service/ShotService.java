@@ -161,6 +161,7 @@ public class ShotService {
                 cycle.getId(),
                 cycle.getCycleNumber(),
                 cycle.getTopic(),
+                starterId,
                 starterNickname,
                 starterShot != null ? starterShot.getImageUrl() : null,
                 cycle.getStatus(),
