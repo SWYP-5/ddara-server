@@ -82,7 +82,7 @@ class CycleServiceTest {
         cycleService.createCycle(1L, 7L, new CreateCycleRequest("점프샷", "https://img.example/1.jpg"));
 
         // then
-        verify(notificationService).createNewCycle(eq(7L), eq("마라탕 모임"), any(), any());
+        verify(notificationService).createNewCycle(eq(7L), eq("마라탕 모임"), any(), any(), any());
     }
 
     @Test

@@ -1,5 +1,7 @@
 package com.app.backend.domain.notification.service;
 
+import com.app.backend.domain.block.entity.Block;
+import com.app.backend.domain.block.repository.BlockRepository;
 import com.app.backend.domain.group.entity.Membership;
 import com.app.backend.domain.group.repository.MembershipRepository;
 import com.app.backend.domain.notification.dto.NotificationItem;
@@ -29,6 +31,8 @@ import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class NotificationService {
@@ -47,6 +51,7 @@ public class NotificationService {
     private final MembershipRepository membershipRepository;
     private final UserRepository userRepository;
     private final ShotRepository shotRepository;
+    private final BlockRepository blockRepository;
     private final FcmService fcmService;
 
     public NotificationService(NotificationRepository notificationRepository,
@@ -54,12 +59,14 @@ public class NotificationService {
                                MembershipRepository membershipRepository,
                                UserRepository userRepository,
                                ShotRepository shotRepository,
+                               BlockRepository blockRepository,
                                FcmService fcmService) {
         this.notificationRepository = notificationRepository;
         this.objectMapper = objectMapper;
         this.membershipRepository = membershipRepository;
         this.userRepository = userRepository;
         this.shotRepository = shotRepository;
+        this.blockRepository = blockRepository;
         this.fcmService = fcmService;
     }
 
@@ -68,14 +75,16 @@ public class NotificationService {
 
     /** 회차 시작 → 모임 멤버 전원. */
     @Transactional
-    public void createNewCycle(Long groupId, String groupName, Long cycleId, LocalDateTime deadlineAt) {
+    public void createNewCycle(Long groupId, String groupName, Long cycleId,
+                               Long starterUserId, LocalDateTime deadlineAt) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("groupId", groupId);
         payload.put("groupName", groupName);
         payload.put("cycleId", cycleId);
         payload.put("deadlineAt", deadlineAt.atZone(SEOUL).toOffsetDateTime().toString());   // 마감시각
         payload.put("imageUrl", starterShotImageUrl(cycleId));   // 개인 관련 → 스타터 원본 가이드샷
-        notifyEach(activeMemberIds(groupId), NotificationType.NEW_CYCLE, payload);
+        notifyEach(excludeBlockers(activeMemberIds(groupId), starterUserId),
+                NotificationType.NEW_CYCLE, payload);
     }
 
     /** 회차 마감 → 모임 멤버 전원. */
@@ -92,7 +101,7 @@ public class NotificationService {
     /** 모임 합류 → 합류자 본인 제외 멤버 전원. */
     @Transactional
     public void createMemberJoin(Long groupId, String groupName, String actorNickname, Long joinedUserId) {
-        List<Long> recipients = activeMemberIds(groupId).stream()
+        List<Long> recipients = excludeBlockers(activeMemberIds(groupId), joinedUserId).stream()
                 .filter(id -> !id.equals(joinedUserId))
                 .toList();
         Map<String, Object> payload = new LinkedHashMap<>();
@@ -144,6 +153,19 @@ public class NotificationService {
     private List<Long> activeMemberIds(Long groupId) {
         return membershipRepository.findByGroupIdAndLeftAtIsNull(groupId).stream()
                 .map(Membership::getUserId)
+                .toList();
+    }
+
+    /** 행위자(actor)를 차단한 유저를 수신자에서 제외 */
+    private List<Long> excludeBlockers(List<Long> recipients, Long actorUserId) {
+        Set<Long> blockers = blockRepository.findByBlockedId(actorUserId).stream()
+                .map(Block::getBlockerId)
+                .collect(Collectors.toSet());
+        if (blockers.isEmpty()) {
+            return recipients;
+        }
+        return recipients.stream()
+                .filter(id -> !blockers.contains(id))
                 .toList();
     }
 

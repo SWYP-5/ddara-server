@@ -1,5 +1,6 @@
 package com.app.backend.domain.notification.service;
 
+import com.app.backend.domain.block.repository.BlockRepository;
 import com.app.backend.domain.group.entity.Membership;
 import com.app.backend.domain.group.entity.MembershipRole;
 import com.app.backend.domain.group.repository.MembershipRepository;
@@ -55,6 +56,9 @@ class NotificationServiceTest {
     private ShotRepository shotRepository;
 
     @Mock
+    private BlockRepository blockRepository;
+
+    @Mock
     private FcmService fcmService;
 
     @Captor
@@ -71,7 +75,7 @@ class NotificationServiceTest {
     void setUp() {
         notificationService = new NotificationService(
                 notificationRepository, objectMapper,
-                membershipRepository, userRepository, shotRepository, fcmService);
+                membershipRepository, userRepository, shotRepository, blockRepository, fcmService);
     }
 
     // 회차의 스타터 원본 가이드샷 (imageUrl 지정)
@@ -247,7 +251,7 @@ class NotificationServiceTest {
         given(userRepository.findById(2L)).willReturn(Optional.of(userWithPrefs(null)));
 
         // when
-        notificationService.createNewCycle(7L, "마라탕 모임", 55L, DEADLINE_AT);
+        notificationService.createNewCycle(7L, "마라탕 모임", 55L, 3L, DEADLINE_AT);
 
         // then: 멤버 2명 각각 NEW_CYCLE 알림 저장
         verify(notificationRepository, org.mockito.Mockito.times(2)).save(notificationCaptor.capture());
@@ -306,7 +310,7 @@ class NotificationServiceTest {
         given(userRepository.findById(1L)).willReturn(Optional.of(user));
 
         // when: 4종 알림 생성
-        notificationService.createNewCycle(7L, "마라탕 모임", 55L, DEADLINE_AT);
+        notificationService.createNewCycle(7L, "마라탕 모임", 55L, 3L, DEADLINE_AT);
         notificationService.createCycleCompleted(7L, "마라탕 모임", 55L);
         notificationService.createMemberJoin(7L, "마라탕 모임", "지원", 3L);
         notificationService.createDeadline(7L, "마라탕 모임", 55L, LocalDateTime.now(), 60);
@@ -348,7 +352,7 @@ class NotificationServiceTest {
                 "{\"allowAll\":false,\"activity\":{\"followShot\":true,\"deadlineVote\":true},\"etc\":{\"memberJoin\":true}}")));
 
         // when
-        notificationService.createNewCycle(7L, "마라탕 모임", 55L, DEADLINE_AT);
+        notificationService.createNewCycle(7L, "마라탕 모임", 55L, 3L, DEADLINE_AT);
 
         // then: 인앱 알림은 저장(목록엔 뜸), 푸시는 미발송
         verify(notificationRepository).save(any());
@@ -365,7 +369,7 @@ class NotificationServiceTest {
                 "{\"allowAll\":true,\"activity\":{\"followShot\":false,\"deadlineVote\":true},\"etc\":{\"memberJoin\":true}}")));
 
         // when
-        notificationService.createNewCycle(7L, "마라탕 모임", 55L, DEADLINE_AT);
+        notificationService.createNewCycle(7L, "마라탕 모임", 55L, 3L, DEADLINE_AT);
 
         // then: followShot off여도 인앱 저장, 푸시만 미발송
         verify(notificationRepository).save(any());
@@ -405,7 +409,7 @@ class NotificationServiceTest {
                 .willReturn(Optional.of(starterShot(STARTER_SHOT_URL)));
 
         // when
-        notificationService.createNewCycle(7L, "마라탕 모임", 55L, DEADLINE_AT);
+        notificationService.createNewCycle(7L, "마라탕 모임", 55L, 3L, DEADLINE_AT);
 
         // then: payload.imageUrl = 스타터 원본 가이드샷 URL
         verify(notificationRepository).save(notificationCaptor.capture());
@@ -439,7 +443,7 @@ class NotificationServiceTest {
                 .willReturn(Optional.empty());
 
         // when
-        notificationService.createNewCycle(7L, "마라탕 모임", 55L, DEADLINE_AT);
+        notificationService.createNewCycle(7L, "마라탕 모임", 55L, 3L, DEADLINE_AT);
 
         // then: imageUrl은 null (프론트가 기본 표시)
         verify(notificationRepository).save(notificationCaptor.capture());
@@ -455,7 +459,7 @@ class NotificationServiceTest {
         given(shotRepository.findByCycleIdAndType(55L, ShotType.STARTER)).willReturn(Optional.empty());
 
         // when: 마감 2026-07-06T21:00
-        notificationService.createNewCycle(7L, "마라탕 모임", 55L, LocalDateTime.of(2026, 7, 6, 21, 0));
+        notificationService.createNewCycle(7L, "마라탕 모임", 55L, 3L, LocalDateTime.of(2026, 7, 6, 21, 0));
 
         // then: payload에 deadlineAt 포함 (KST 오프셋 +09:00)
         verify(notificationRepository).save(notificationCaptor.capture());

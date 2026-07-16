@@ -48,6 +48,9 @@ class UserServiceTest {
     private MembershipRepository membershipRepository;
 
     @Mock
+    private com.app.backend.domain.block.repository.BlockRepository blockRepository;
+
+    @Mock
     private com.app.backend.domain.group.service.GroupService groupService;
 
     @Mock
@@ -65,7 +68,8 @@ class UserServiceTest {
     void setUp() {
         userService = new UserService(
                 userRepository, objectMapper, refreshTokenRepository,
-                notificationRepository, membershipRepository, groupService, appleAuthClient,
+                notificationRepository, membershipRepository, blockRepository,
+                groupService, appleAuthClient,
                 "ddara-images", "ap-northeast-2");
     }
 

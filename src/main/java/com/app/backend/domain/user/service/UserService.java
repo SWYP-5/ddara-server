@@ -2,6 +2,7 @@ package com.app.backend.domain.user.service;
 
 import com.app.backend.domain.auth.apple.AppleAuthClient;
 import com.app.backend.domain.auth.repository.RefreshTokenRepository;
+import com.app.backend.domain.block.repository.BlockRepository;
 import com.app.backend.domain.group.repository.MembershipRepository;
 import com.app.backend.domain.group.service.GroupService;
 import com.app.backend.domain.notification.repository.NotificationRepository;
@@ -37,6 +38,7 @@ public class UserService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final NotificationRepository notificationRepository;
     private final MembershipRepository membershipRepository;
+    private final BlockRepository blockRepository;
     private final GroupService groupService;
     private final AppleAuthClient appleAuthClient;
     // 프로필 이미지로 허용할 S3 URL 접두사 (우리 버킷의 profiles/ 경로만)
@@ -47,6 +49,7 @@ public class UserService {
                        RefreshTokenRepository refreshTokenRepository,
                        NotificationRepository notificationRepository,
                        MembershipRepository membershipRepository,
+                       BlockRepository blockRepository,
                        GroupService groupService,
                        AppleAuthClient appleAuthClient,
                        @Value("${aws.s3.bucket}") String bucket,
@@ -56,6 +59,7 @@ public class UserService {
         this.refreshTokenRepository = refreshTokenRepository;
         this.notificationRepository = notificationRepository;
         this.membershipRepository = membershipRepository;
+        this.blockRepository = blockRepository;
         this.groupService = groupService;
         this.appleAuthClient = appleAuthClient;
         this.profileImageUrlPrefix =
@@ -180,6 +184,7 @@ public class UserService {
         for (User user : userRepository.findByDeletedAtBefore(cutoff)) {
             notificationRepository.deleteByUserId(user.getId());
             membershipRepository.deleteByUserId(user.getId());
+            blockRepository.deleteByBlockerIdOrBlockedId(user.getId(), user.getId());
             userRepository.delete(user);
         }
     }

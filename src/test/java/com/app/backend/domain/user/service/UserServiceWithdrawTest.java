@@ -2,6 +2,7 @@ package com.app.backend.domain.user.service;
 
 import com.app.backend.domain.auth.apple.AppleAuthClient;
 import com.app.backend.domain.auth.repository.RefreshTokenRepository;
+import com.app.backend.domain.block.repository.BlockRepository;
 import com.app.backend.domain.group.repository.MembershipRepository;
 import com.app.backend.domain.group.service.GroupService;
 import com.app.backend.domain.notification.repository.NotificationRepository;
@@ -34,6 +35,7 @@ class UserServiceWithdrawTest {
         appleAuthClient = mock(AppleAuthClient.class);
         userService = new UserService(userRepository, new ObjectMapper(), refreshTokenRepository,
                 mock(NotificationRepository.class), mock(MembershipRepository.class),
+                mock(BlockRepository.class),
                 groupService, appleAuthClient, "ddara-images", "ap-northeast-2");
     }
 
