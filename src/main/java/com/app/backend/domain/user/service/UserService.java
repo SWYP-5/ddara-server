@@ -6,6 +6,7 @@ import com.app.backend.domain.block.repository.BlockRepository;
 import com.app.backend.domain.group.repository.MembershipRepository;
 import com.app.backend.domain.group.service.GroupService;
 import com.app.backend.domain.notification.repository.NotificationRepository;
+import com.app.backend.domain.upload.service.UploadService;
 import com.app.backend.domain.user.dto.NotificationSettingsRequest;
 import com.app.backend.domain.user.dto.NotificationSettingsResponse;
 import com.app.backend.domain.user.dto.ProfileImageResponse;
@@ -41,6 +42,7 @@ public class UserService {
     private final BlockRepository blockRepository;
     private final GroupService groupService;
     private final AppleAuthClient appleAuthClient;
+    private final UploadService uploadService;
     // 프로필 이미지로 허용할 S3 URL 접두사 (우리 버킷의 profiles/ 경로만)
     private final String profileImageUrlPrefix;
 
@@ -52,6 +54,7 @@ public class UserService {
                        BlockRepository blockRepository,
                        GroupService groupService,
                        AppleAuthClient appleAuthClient,
+                       UploadService uploadService,
                        @Value("${aws.s3.bucket}") String bucket,
                        @Value("${aws.s3.region}") String region) {
         this.userRepository = userRepository;
@@ -62,6 +65,7 @@ public class UserService {
         this.blockRepository = blockRepository;
         this.groupService = groupService;
         this.appleAuthClient = appleAuthClient;
+        this.uploadService = uploadService;
         this.profileImageUrlPrefix =
                 "https://" + bucket + ".s3." + region + ".amazonaws.com/profiles/";
     }
@@ -82,9 +86,12 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
+        String oldImageUrl = user.getProfileImageUrl();
+
         // imageUrl 없음 → 디폴트 아바타로 초기화
         if (imageUrl == null || imageUrl.isBlank()) {
             user.updateProfileImage(null);
+            uploadService.deleteImage(oldImageUrl);
             return new ProfileImageResponse(null);
         }
 
@@ -94,6 +101,9 @@ public class UserService {
         }
 
         user.updateProfileImage(imageUrl);
+        if (!imageUrl.equals(oldImageUrl)) {
+            uploadService.deleteImage(oldImageUrl);
+        }
         return new ProfileImageResponse(imageUrl);
     }
 
@@ -165,6 +175,8 @@ public class UserService {
         }
 
         LocalDateTime now = LocalDateTime.now();
+        // 익명화 시 URL이 지워지므로 프로필 이미지는 탈퇴 시점에 S3에서 삭제 (재가입은 새 계정이라 복구 불필요)
+        uploadService.deleteImage(user.getProfileImageUrl());
         // soft delete + 익명화 + provider_id 자리 비움(재가입 가능). 데이터(알림·멤버십)는 5일 보존.
         user.withdraw(now);
         // 속한 모든 모임에서 나간 것으로 처리 — 멤버 목록·회차 참여 인원에서 제외되고,
