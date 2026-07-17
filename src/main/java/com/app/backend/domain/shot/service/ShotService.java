@@ -158,6 +158,7 @@ public class ShotService {
                     }
                     return new ShotListResponse.MemberShot(
                             memberId,
+                            shot != null ? shot.getId() : null,
                             membership.getNickname(),
                             user != null ? user.getProfileImageUrl() : null,
                             isStarter,
@@ -184,6 +185,7 @@ public class ShotService {
                 cycle.getCycleNumber(),
                 cycle.getTopic(),
                 starterId,
+                starterShot != null ? starterShot.getId() : null,
                 starterNickname,
                 starterUnderReview ? null : (starterShot != null ? starterShot.getImageUrl() : null),
                 starterUnderReview,

@@ -17,6 +17,7 @@ public record ShotListResponse(
             Integer cycleNumber,
             String topic,
             Long starterUserId,
+            Long starterShotId,
             String starterNickname,
             String starterImageUrl,
             boolean starterImageUnderReview,
@@ -27,10 +28,11 @@ public record ShotListResponse(
 
     public record MemberShot(
             Long userId,
+            Long shotId,
             String nickname,
             String profileImageUrl,
             boolean isStarter,
-            String status,          // open / empty / locked
+            String status,          // open / empty / locked / reported
             String imageUrl,
             LocalDateTime uploadedAt
     ) {
