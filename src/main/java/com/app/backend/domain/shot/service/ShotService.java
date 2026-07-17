@@ -108,7 +108,9 @@ public class ShotService {
         Map<Long, User> usersById = userRepository.findAllById(
                         members.stream().map(Membership::getUserId).toList()).stream()
                 .collect(Collectors.toMap(User::getId, Function.identity()));
+
         Map<Long, Shot> shotsByUser = shotRepository.findByCycleIdAndDeletedAtIsNull(cycleId).stream()
+                .filter(shot -> !shot.isRemoved())
                 .collect(Collectors.toMap(Shot::getUserId, Function.identity()));
 
         boolean viewerUploaded = shotsByUser.containsKey(userId);
@@ -129,6 +131,10 @@ public class ShotService {
                         status = "empty";
                         imageUrl = null;
                         uploadedAt = null;
+                    } else if (shot.isUnderReview()) {
+                        status = "reported";
+                        imageUrl = null;
+                        uploadedAt = shot.getUploadedAt();
                     } else {
                         boolean canSee = cycleDone || viewerUploaded || isStarter || memberId.equals(userId);
                         status = canSee ? "open" : "locked";
@@ -157,13 +163,15 @@ public class ShotService {
                 .map(Membership::getNickname)
                 .orElse(null);
         Shot starterShot = shotsByUser.get(starterId);
+        boolean starterUnderReview = starterShot != null && starterShot.isUnderReview();
         ShotListResponse.CycleBanner cycleBanner = new ShotListResponse.CycleBanner(
                 cycle.getId(),
                 cycle.getCycleNumber(),
                 cycle.getTopic(),
                 starterId,
                 starterNickname,
-                starterShot != null ? starterShot.getImageUrl() : null,
+                starterUnderReview ? null : (starterShot != null ? starterShot.getImageUrl() : null),
+                starterUnderReview,
                 cycle.getStatus(),
                 cycle.getDeadlineAt());
 

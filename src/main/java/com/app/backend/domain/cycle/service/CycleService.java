@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class CycleService {
@@ -96,15 +97,17 @@ public class CycleService {
         List<PastCyclesResponse.PastCycle> cycles = cycleRepository
                 .findByGroupIdAndStatusOrderByCycleNumberDesc(groupId, CycleStatus.DONE).stream()
                 .map(cycle -> {
-                    String thumbnailUrl = shotRepository
-                            .findByCycleIdAndType(cycle.getId(), ShotType.STARTER)
-                            .map(Shot::getImageUrl)
-                            .orElse(null);
+                    Optional<Shot> starterShot = shotRepository
+                            .findByCycleIdAndType(cycle.getId(), ShotType.STARTER);
+                    boolean underReview = starterShot.map(Shot::isUnderReview).orElse(false);
+                    String thumbnailUrl = underReview ? null
+                            : starterShot.map(Shot::getImageUrl).orElse(null);
                     long participantCount = shotRepository.countByCycleIdAndDeletedAtIsNull(cycle.getId());
                     return new PastCyclesResponse.PastCycle(
                             cycle.getId(),
                             cycle.getTopic(),
                             thumbnailUrl,
+                            underReview,
                             cycle.getStarterUserId(),
                             participantCount,
                             cycle.getStartedAt());

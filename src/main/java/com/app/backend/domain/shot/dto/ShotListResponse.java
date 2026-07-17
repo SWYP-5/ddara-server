@@ -19,6 +19,7 @@ public record ShotListResponse(
             Long starterUserId,
             String starterNickname,
             String starterImageUrl,
+            boolean starterImageUnderReview,
             CycleStatus status,
             LocalDateTime deadlineAt
     ) {

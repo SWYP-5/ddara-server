@@ -123,10 +123,9 @@ public class GroupService {
                             .map(c -> new CurrentCycleResponse(c.getId(), c.getTopic(), c.getDeadlineAt()))
                             .orElse(null);
 
-                    Cycle thumbnailCycle = latestCycle(group.getId());
-                    String thumbnailUrl = starterImageUrl(thumbnailCycle);
-                    Long thumbnailUserId =
-                            thumbnailUrl != null ? thumbnailCycle.getStarterUserId() : null;
+                    Shot thumbnailShot = thumbnailShot(group.getId());
+                    String thumbnailUrl = thumbnailShot != null ? thumbnailShot.getImageUrl() : null;
+                    Long thumbnailUserId = thumbnailShot != null ? thumbnailShot.getUserId() : null;
 
                     return GroupListItem.of(group, ownerNickname, memberCount,
                             thumbnailUrl, thumbnailUserId, currentCycle);
@@ -193,7 +192,11 @@ public class GroupService {
                             .findFirst()
                             .map(Membership::getNickname)
                             .orElse(null);
-                    return CurrentCycleDetailResponse.from(c, starterNickname, starterImageUrl(c));
+                    Optional<Shot> starterShot = starterShot(c);
+                    boolean underReview = starterShot.map(Shot::isUnderReview).orElse(false);
+                    String starterImageUrl = underReview ? null
+                            : starterShot.map(Shot::getImageUrl).orElse(null);
+                    return CurrentCycleDetailResponse.from(c, starterNickname, starterImageUrl, underReview);
                 })
                 .orElse(null);
 
@@ -332,20 +335,30 @@ public class GroupService {
         return expired.size();
     }
 
-    private Cycle latestCycle(Long groupId) {
-        return cycleRepository.findByGroupIdAndStatus(groupId, CycleStatus.IN_PROGRESS)
-                .orElseGet(() -> cycleRepository
-                        .findTopByGroupIdAndStatusOrderByCycleNumberDesc(groupId, CycleStatus.DONE)
-                        .orElse(null));
+    private Optional<Shot> starterShot(Cycle cycle) {
+        if (cycle == null) {
+            return Optional.empty();
+        }
+        return shotRepository.findByCycleIdAndType(cycle.getId(), ShotType.STARTER);
     }
 
-    private String starterImageUrl(Cycle cycle) {
-        if (cycle == null) {
-            return null;
+    // 모임 목록 썸네일용 사진. 검토중/삭제 사진은 건너뛰고 최신 회차부터 탐색한다
+    private Shot thumbnailShot(Long groupId) {
+        Optional<Shot> inProgress = cycleRepository
+                .findByGroupIdAndStatus(groupId, CycleStatus.IN_PROGRESS)
+                .flatMap(this::starterShot)
+                .filter(s -> !s.isUnderReview() && !s.isRemoved());
+        if (inProgress.isPresent()) {
+            return inProgress.get();
         }
-        return shotRepository.findByCycleIdAndType(cycle.getId(), ShotType.STARTER)
-                .map(Shot::getImageUrl)
-                .orElse(null);
+        for (Cycle cycle : cycleRepository.findByGroupIdAndStatusOrderByCycleNumberDesc(groupId, CycleStatus.DONE)) {
+            Optional<Shot> shot = starterShot(cycle)
+                    .filter(s -> !s.isUnderReview() && !s.isRemoved());
+            if (shot.isPresent()) {
+                return shot.get();
+            }
+        }
+        return null;
     }
 
     private String generateUniqueInviteCode() {
