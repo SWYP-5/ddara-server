@@ -10,12 +10,13 @@ public record GroupListItem(
         String ownerNickname,
         long memberCount,
         String thumbnailUrl,
+        boolean thumbnailUnderReview,
         Long thumbnailUserId,
         CurrentCycleResponse currentCycle,
         LocalDateTime createdAt
 ) {
     public static GroupListItem of(Group group, String ownerNickname, long memberCount,
-                                   String thumbnailUrl, Long thumbnailUserId,
+                                   String thumbnailUrl, boolean thumbnailUnderReview, Long thumbnailUserId,
                                    CurrentCycleResponse currentCycle) {
         return new GroupListItem(
                 group.getId(),
@@ -23,6 +24,7 @@ public record GroupListItem(
                 ownerNickname,
                 memberCount,
                 thumbnailUrl,
+                thumbnailUnderReview,
                 thumbnailUserId,
                 currentCycle,
                 group.getCreatedAt()

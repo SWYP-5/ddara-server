@@ -123,12 +123,15 @@ public class GroupService {
                             .map(c -> new CurrentCycleResponse(c.getId(), c.getTopic(), c.getDeadlineAt()))
                             .orElse(null);
 
-                    Shot thumbnailShot = thumbnailShot(group.getId());
-                    String thumbnailUrl = thumbnailShot != null ? thumbnailShot.getImageUrl() : null;
-                    Long thumbnailUserId = thumbnailShot != null ? thumbnailShot.getUserId() : null;
+                    Optional<Shot> thumbnailShot = starterShot(latestCycle(group.getId()));
+                    boolean thumbnailUnderReview =
+                            thumbnailShot.map(Shot::isUnderReview).orElse(false);
+                    String thumbnailUrl = thumbnailUnderReview ? null
+                            : thumbnailShot.map(Shot::getImageUrl).orElse(null);
+                    Long thumbnailUserId = thumbnailShot.map(Shot::getUserId).orElse(null);
 
                     return GroupListItem.of(group, ownerNickname, memberCount,
-                            thumbnailUrl, thumbnailUserId, currentCycle);
+                            thumbnailUrl, thumbnailUnderReview, thumbnailUserId, currentCycle);
                 })
                 .sorted(Comparator.comparing(GroupListItem::createdAt))
                 .toList();
@@ -342,23 +345,11 @@ public class GroupService {
         return shotRepository.findByCycleIdAndType(cycle.getId(), ShotType.STARTER);
     }
 
-    // 모임 목록 썸네일용 사진. 검토중/삭제 사진은 건너뛰고 최신 회차부터 탐색한다
-    private Shot thumbnailShot(Long groupId) {
-        Optional<Shot> inProgress = cycleRepository
-                .findByGroupIdAndStatus(groupId, CycleStatus.IN_PROGRESS)
-                .flatMap(this::starterShot)
-                .filter(s -> !s.isUnderReview() && !s.isRemoved());
-        if (inProgress.isPresent()) {
-            return inProgress.get();
-        }
-        for (Cycle cycle : cycleRepository.findByGroupIdAndStatusOrderByCycleNumberDesc(groupId, CycleStatus.DONE)) {
-            Optional<Shot> shot = starterShot(cycle)
-                    .filter(s -> !s.isUnderReview() && !s.isRemoved());
-            if (shot.isPresent()) {
-                return shot.get();
-            }
-        }
-        return null;
+    private Cycle latestCycle(Long groupId) {
+        return cycleRepository.findByGroupIdAndStatus(groupId, CycleStatus.IN_PROGRESS)
+                .orElseGet(() -> cycleRepository
+                        .findTopByGroupIdAndStatusOrderByCycleNumberDesc(groupId, CycleStatus.DONE)
+                        .orElse(null));
     }
 
     private String generateUniqueInviteCode() {
