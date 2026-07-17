@@ -36,7 +36,9 @@ class UserServiceWithdrawTest {
         userService = new UserService(userRepository, new ObjectMapper(), refreshTokenRepository,
                 mock(NotificationRepository.class), mock(MembershipRepository.class),
                 mock(BlockRepository.class),
-                groupService, appleAuthClient, "ddara-images", "ap-northeast-2");
+                groupService, appleAuthClient,
+                mock(com.app.backend.domain.upload.service.UploadService.class),
+                "ddara-images", "ap-northeast-2");
     }
 
     @Test

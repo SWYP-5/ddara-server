@@ -23,6 +23,7 @@ import com.app.backend.domain.notification.service.NotificationService;
 import com.app.backend.domain.shot.entity.Shot;
 import com.app.backend.domain.shot.entity.ShotType;
 import com.app.backend.domain.shot.repository.ShotRepository;
+import com.app.backend.domain.upload.service.UploadService;
 import com.app.backend.domain.user.entity.User;
 import com.app.backend.domain.user.repository.UserRepository;
 import com.app.backend.global.exception.CustomException;
@@ -55,6 +56,7 @@ public class GroupService {
     private final ShotRepository shotRepository;
     private final InviteCodeGenerator inviteCodeGenerator;
     private final NotificationService notificationService;
+    private final UploadService uploadService;
 
     public GroupService(GroupRepository groupRepository,
                         MembershipRepository membershipRepository,
@@ -62,7 +64,8 @@ public class GroupService {
                         CycleRepository cycleRepository,
                         ShotRepository shotRepository,
                         InviteCodeGenerator inviteCodeGenerator,
-                        NotificationService notificationService) {
+                        NotificationService notificationService,
+                        UploadService uploadService) {
         this.groupRepository = groupRepository;
         this.membershipRepository = membershipRepository;
         this.userRepository = userRepository;
@@ -70,6 +73,7 @@ public class GroupService {
         this.shotRepository = shotRepository;
         this.inviteCodeGenerator = inviteCodeGenerator;
         this.notificationService = notificationService;
+        this.uploadService = uploadService;
     }
 
     @Transactional
@@ -329,6 +333,11 @@ public class GroupService {
                     .map(Cycle::getId)
                     .toList();
             if (!cycleIds.isEmpty()) {
+                boolean s3Deleted = shotRepository.findByCycleIdIn(cycleIds).stream()
+                        .allMatch(shot -> uploadService.deleteImage(shot.getImageUrl()));
+                if (!s3Deleted) {
+                    continue;
+                }
                 shotRepository.deleteByCycleIdIn(cycleIds);
             }
             cycleRepository.deleteByGroupId(groupId);

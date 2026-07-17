@@ -8,6 +8,7 @@ import com.app.backend.domain.group.repository.GroupRepository;
 import com.app.backend.domain.group.repository.MembershipRepository;
 import com.app.backend.domain.notification.service.NotificationService;
 import com.app.backend.domain.shot.repository.ShotRepository;
+import com.app.backend.domain.upload.service.UploadService;
 import com.app.backend.domain.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -47,13 +48,17 @@ class GroupServiceTest {
     @Mock
     private NotificationService notificationService;
 
+    @Mock
+    private UploadService uploadService;
+
     private GroupService groupService;
 
     @BeforeEach
     void setUp() {
         groupService = new GroupService(
                 groupRepository, membershipRepository, userRepository,
-                cycleRepository, shotRepository, inviteCodeGenerator, notificationService);
+                cycleRepository, shotRepository, inviteCodeGenerator, notificationService,
+                uploadService);
     }
 
     @Test
