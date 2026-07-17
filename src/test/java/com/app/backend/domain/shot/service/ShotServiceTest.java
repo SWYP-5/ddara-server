@@ -8,6 +8,7 @@ import com.app.backend.domain.group.repository.GroupRepository;
 import com.app.backend.domain.group.repository.MembershipRepository;
 import com.app.backend.domain.notification.service.NotificationService;
 import com.app.backend.domain.shot.dto.ShotUploadRequest;
+import com.app.backend.domain.shot.entity.ReviewStatus;
 import com.app.backend.domain.shot.entity.Shot;
 import com.app.backend.domain.shot.repository.ShotRepository;
 import com.app.backend.domain.user.repository.UserRepository;
@@ -72,7 +73,8 @@ class ShotServiceTest {
         Cycle cycle = inProgressCycle();
         stubUploadCommon(cycle);
         given(membershipRepository.countByGroupIdAndLeftAtIsNull(7L)).willReturn(3L);
-        given(shotRepository.countByCycleIdAndDeletedAtIsNull(55L)).willReturn(3L);
+        given(shotRepository.countByCycleIdAndDeletedAtIsNullAndReviewStatusNot(55L, ReviewStatus.REMOVED))
+                .willReturn(3L);
         given(groupRepository.findById(7L)).willReturn(Optional.of(
                 Group.builder().name("마라탕 모임").ownerUserId(99L).build()));
 
@@ -90,7 +92,8 @@ class ShotServiceTest {
         Cycle cycle = inProgressCycle();
         stubUploadCommon(cycle);
         given(membershipRepository.countByGroupIdAndLeftAtIsNull(7L)).willReturn(3L);
-        given(shotRepository.countByCycleIdAndDeletedAtIsNull(55L)).willReturn(2L);
+        given(shotRepository.countByCycleIdAndDeletedAtIsNullAndReviewStatusNot(55L, ReviewStatus.REMOVED))
+                .willReturn(2L);
 
         // when
         shotService.uploadShot(1L, 55L, new ShotUploadRequest("https://img/1.jpg"));

@@ -70,6 +70,11 @@ public class Shot {
         this.reviewStatus = ReviewStatus.UNDER_REVIEW;
     }
 
+    // 운영 삭제(REMOVED)된 자리에 재업로드할 때 사용
+    public void reactivate() {
+        this.reviewStatus = ReviewStatus.ACTIVE;
+    }
+
     public boolean isUnderReview() {
         return reviewStatus == ReviewStatus.UNDER_REVIEW;
     }
