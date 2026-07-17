@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
@@ -24,13 +25,16 @@ class UploadServiceTest {
     private S3Presigner s3Presigner;
 
     @Mock
+    private S3Client s3Client;
+
+    @Mock
     private PresignedPutObjectRequest presigned;
 
     private UploadService uploadService;
 
     @BeforeEach
     void setUp() throws Exception {
-        uploadService = new UploadService(s3Presigner, "ddara-images", "ap-northeast-2");
+        uploadService = new UploadService(s3Presigner, s3Client, "ddara-images", "ap-northeast-2");
         given(s3Presigner.presignPutObject(any(PutObjectPresignRequest.class))).willReturn(presigned);
         given(presigned.url()).willReturn(URI.create("https://upload-url.example").toURL());
     }

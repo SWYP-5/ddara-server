@@ -56,6 +56,9 @@ class UserServiceTest {
     @Mock
     private AppleAuthClient appleAuthClient;
 
+    @Mock
+    private com.app.backend.domain.upload.service.UploadService uploadService;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     // 우리 S3 버킷의 profiles/ 경로 URL (테스트 값)
@@ -69,7 +72,7 @@ class UserServiceTest {
         userService = new UserService(
                 userRepository, objectMapper, refreshTokenRepository,
                 notificationRepository, membershipRepository, blockRepository,
-                groupService, appleAuthClient,
+                groupService, appleAuthClient, uploadService,
                 "ddara-images", "ap-northeast-2");
     }
 
