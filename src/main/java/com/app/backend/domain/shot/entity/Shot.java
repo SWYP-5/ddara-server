@@ -43,6 +43,10 @@ public class Shot {
     @Column(name = "image_url", nullable = false, length = 500)
     private String imageUrl;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "review_status", nullable = false, length = 20)
+    private ReviewStatus reviewStatus = ReviewStatus.ACTIVE;
+
     @CreationTimestamp
     @Column(name = "uploaded_at", updatable = false)
     private LocalDateTime uploadedAt;
@@ -60,5 +64,22 @@ public class Shot {
 
     public void changeImageUrl(String imageUrl) {
         this.imageUrl = imageUrl;
+    }
+
+    public void markUnderReview() {
+        this.reviewStatus = ReviewStatus.UNDER_REVIEW;
+    }
+
+    // 운영 삭제(REMOVED)된 자리에 재업로드할 때 사용
+    public void reactivate() {
+        this.reviewStatus = ReviewStatus.ACTIVE;
+    }
+
+    public boolean isUnderReview() {
+        return reviewStatus == ReviewStatus.UNDER_REVIEW;
+    }
+
+    public boolean isRemoved() {
+        return reviewStatus == ReviewStatus.REMOVED;
     }
 }

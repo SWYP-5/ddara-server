@@ -10,6 +10,7 @@ public record PastCyclesResponse(
             Long cycleId,
             String topic,
             String thumbnailUrl,
+            boolean thumbnailUnderReview,
             Long starterUserId,
             long participantCount,
             LocalDateTime date

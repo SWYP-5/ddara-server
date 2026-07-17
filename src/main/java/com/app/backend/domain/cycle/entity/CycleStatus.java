@@ -4,7 +4,8 @@ import com.fasterxml.jackson.annotation.JsonValue;
 
 public enum CycleStatus {
     IN_PROGRESS,
-    DONE;
+    DONE,
+    REMOVED;
 
     // JSON 직렬화 시 소문자로 (in_progress / done)
     @JsonValue

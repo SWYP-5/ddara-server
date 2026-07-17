@@ -10,6 +10,7 @@ import com.app.backend.domain.group.entity.Group;
 import com.app.backend.domain.group.repository.GroupRepository;
 import com.app.backend.domain.group.repository.MembershipRepository;
 import com.app.backend.domain.notification.service.NotificationService;
+import com.app.backend.domain.shot.entity.ReviewStatus;
 import com.app.backend.domain.shot.entity.Shot;
 import com.app.backend.domain.shot.entity.ShotType;
 import com.app.backend.domain.shot.repository.ShotRepository;
@@ -20,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class CycleService {
@@ -96,15 +98,18 @@ public class CycleService {
         List<PastCyclesResponse.PastCycle> cycles = cycleRepository
                 .findByGroupIdAndStatusOrderByCycleNumberDesc(groupId, CycleStatus.DONE).stream()
                 .map(cycle -> {
-                    String thumbnailUrl = shotRepository
-                            .findByCycleIdAndType(cycle.getId(), ShotType.STARTER)
-                            .map(Shot::getImageUrl)
-                            .orElse(null);
-                    long participantCount = shotRepository.countByCycleIdAndDeletedAtIsNull(cycle.getId());
+                    Optional<Shot> starterShot = shotRepository
+                            .findByCycleIdAndType(cycle.getId(), ShotType.STARTER);
+                    boolean underReview = starterShot.map(Shot::isUnderReview).orElse(false);
+                    String thumbnailUrl = underReview ? null
+                            : starterShot.map(Shot::getImageUrl).orElse(null);
+                    long participantCount = shotRepository
+                            .countByCycleIdAndDeletedAtIsNullAndReviewStatusNot(cycle.getId(), ReviewStatus.REMOVED);
                     return new PastCyclesResponse.PastCycle(
                             cycle.getId(),
                             cycle.getTopic(),
                             thumbnailUrl,
+                            underReview,
                             cycle.getStarterUserId(),
                             participantCount,
                             cycle.getStartedAt());
