@@ -18,6 +18,7 @@ import com.app.backend.domain.user.repository.UserRepository;
 import com.app.backend.global.exception.CustomException;
 import com.app.backend.global.exception.ErrorCode;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -42,6 +43,10 @@ public class NotificationService {
             NotificationType.NEW_CYCLE, NotificationType.CYCLE_COMPLETED, NotificationType.DEADLINE);
     private static final Collection<NotificationType> ETC_TYPES = EnumSet.of(
             NotificationType.MEMBER_JOIN);
+
+    // payload에 스타터 사진이 실리는 type
+    private static final Collection<NotificationType> STARTER_IMAGE_TYPES = EnumSet.of(
+            NotificationType.NEW_CYCLE, NotificationType.CYCLE_COMPLETED);
 
     // 시각은 KST 오프셋(+09:00)을 붙여 내보낸다 (프론트가 UTC로 오해해 9시간 어긋나는 것 방지)
     private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
@@ -139,13 +144,14 @@ public class NotificationService {
 
     /**
      * 회차 스타터가 시작 때 올린 원본 가이드샷(따라 찍을 사진) URL. 개인 관련 알림(회차시작·따라찍기완료)에 씀.
-     * 해당 회차의 STARTER shot이 없으면 null.
+     * 해당 회차의 STARTER shot이 없거나 검토중/삭제 상태면 null.
      */
     private String starterShotImageUrl(Long cycleId) {
         if (cycleId == null) {
             return null;
         }
         return shotRepository.findByCycleIdAndType(cycleId, ShotType.STARTER)
+                .filter(s -> !s.isUnderReview() && !s.isRemoved())
                 .map(Shot::getImageUrl)
                 .orElse(null);
     }
@@ -314,11 +320,14 @@ public class NotificationService {
 
     // 알림 엔티티 1건 → 응답용 NotificationItem 1건으로 변환
     private NotificationItem toItem(Notification n) {
-        Object payload;   // DB엔 payload가 JSON "문자열"로 저장돼 있어서, 응답 땐 진짜 JSON 객체로 다시 파싱
+        Map<String, Object> payload;   // DB엔 payload가 JSON "문자열"로 저장돼 있어서, 응답 땐 진짜 JSON 객체로 다시 파싱
         try {
-            payload = objectMapper.readValue(n.getPayload(), Object.class);
+            payload = objectMapper.readValue(n.getPayload(), new TypeReference<LinkedHashMap<String, Object>>() {});
         } catch (JsonProcessingException e) {
-            payload = Map.of();   // 혹시 payload가 깨져 있으면 빈 객체로(에러 대신)
+            payload = new LinkedHashMap<>();   // 혹시 payload가 깨져 있으면 빈 객체로(에러 대신)
+        }
+        if (STARTER_IMAGE_TYPES.contains(n.getType())) {
+            applyStarterImageState(payload);
         }
         return new NotificationItem(
                 n.getId(),                       // 알림 id
@@ -326,6 +335,19 @@ public class NotificationService {
                 payload,                         // 위에서 파싱한 payload 객체
                 toKstOffset(n.getReadAt()),      // 읽은 시각 → +09:00 붙여서
                 toKstOffset(n.getCreatedAt()));  // 생성 시각 → +09:00 붙여서
+    }
+
+    // 저장된 imageUrl은 생성 시점 값이라 조회 시점 상태(검토중/삭제)로 덮어쓴다. starterUserId는 클라 차단 마스킹용
+    private void applyStarterImageState(Map<String, Object> payload) {
+        Shot shot = null;
+        if (payload.get("cycleId") instanceof Number cycleId) {
+            shot = shotRepository.findByCycleIdAndType(cycleId.longValue(), ShotType.STARTER).orElse(null);
+        }
+        boolean hidden = shot == null || shot.isRemoved();
+        boolean underReview = !hidden && shot.isUnderReview();
+        payload.put("imageUrl", hidden || underReview ? null : shot.getImageUrl());
+        payload.put("imageUnderReview", underReview);
+        payload.put("starterUserId", shot != null ? shot.getUserId() : null);
     }
 
     /** LocalDateTime(KST 벽시계)을 KST 오프셋(+09:00)이 붙은 OffsetDateTime으로 변환. null 허용. */
