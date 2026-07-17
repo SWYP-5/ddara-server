@@ -35,6 +35,10 @@ aws:
     bucket: ${AWS_S3_BUCKET:ddara-images}
     region: ${AWS_S3_REGION:ap-northeast-2}
 
+discord:
+  # 신고 접수 통지용 웹훅
+  report-webhook-url: ${DISCORD_REPORT_WEBHOOK_URL:}
+
 apple:
   team-id: ${APPLE_TEAM_ID:3PVV8DQPL6}
   key-id: ${APPLE_KEY_ID:HBT5YX26FZ}

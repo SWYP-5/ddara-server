@@ -37,7 +37,9 @@ public enum ErrorCode {
     CYCLE_ALREADY_IN_PROGRESS(HttpStatus.CONFLICT, "이미 진행 중인 회차가 있습니다."),
     CYCLE_NOT_FOUND(HttpStatus.NOT_FOUND, "회차를 찾을 수 없습니다."),
     CYCLE_CLOSED(HttpStatus.GONE, "마감된 회차입니다."),
-    STARTER_CANNOT_UPLOAD(HttpStatus.CONFLICT, "스타터는 인증샷을 추가로 올릴 수 없습니다.");
+    STARTER_CANNOT_UPLOAD(HttpStatus.CONFLICT, "스타터는 인증샷을 추가로 올릴 수 없습니다."),
+
+    SHOT_NOT_FOUND(HttpStatus.NOT_FOUND, "사진을 찾을 수 없습니다.");
 
     private final HttpStatus status;
     private final String message;
