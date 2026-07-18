@@ -22,7 +22,7 @@ public record FeedResponse(
             String topic,
             boolean locked,
             long commentCount,
-            LatestComment latestComment,
+            List<LatestComment> latestComments,
             OffsetDateTime uploadedAt
     ) {
     }

@@ -33,6 +33,7 @@ import java.util.stream.Collectors;
 public class FeedService {
 
     private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
+    private static final int LATEST_COMMENT_LIMIT = 5;
 
     private final MembershipRepository membershipRepository;
     private final GroupRepository groupRepository;
@@ -113,14 +114,15 @@ public class FeedService {
                             && shot.getType() == ShotType.MEMBER
                             && !myUploadedCycleIds.contains(cycle.getId());
                     List<Comment> comments = commentsByShot.getOrDefault(shot.getId(), List.of());
-                    FeedResponse.LatestComment latestComment = comments.stream()
-                            .max(Comparator.comparing(Comment::getCreatedAt))
+                    List<FeedResponse.LatestComment> latestComments = comments.stream()
+                            .sorted(Comparator.comparing(Comment::getCreatedAt).reversed())
+                            .limit(LATEST_COMMENT_LIMIT)
                             .map(c -> new FeedResponse.LatestComment(
                                     c.getUserId(),
                                     nickname(nicknameCache, group.getId(), c.getUserId()),
                                     c.isUnderReview() ? null : c.getContent(),
                                     c.isUnderReview()))
-                            .orElse(null);
+                            .toList();
                     return new FeedResponse.FeedItem(
                             shot.getId(),
                             shot.getType(),
@@ -134,7 +136,7 @@ public class FeedService {
                             cycle.getTopic(),
                             locked,
                             comments.size(),
-                            latestComment,
+                            latestComments,
                             toKstOffset(shot.getUploadedAt()));
                 })
                 .toList();
