@@ -69,10 +69,6 @@ public class Comment {
         this.deletedAt = now;
     }
 
-    public void markUnderReview() {
-        this.reviewStatus = ReviewStatus.UNDER_REVIEW;
-    }
-
     public boolean isUnderReview() {
         return reviewStatus == ReviewStatus.UNDER_REVIEW;
     }

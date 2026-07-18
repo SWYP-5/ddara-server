@@ -125,9 +125,6 @@ public class CommentService {
         if (!comment.getUserId().equals(userId)) {
             throw new CustomException(ErrorCode.COMMENT_FORBIDDEN);
         }
-        if (comment.isUnderReview()) {
-            throw new CustomException(ErrorCode.COMMENT_UNDER_REVIEW);
-        }
         comment.updateContent(content, LocalDateTime.now());
         return new CommentUpdateResponse(
                 comment.getId(), comment.getContent(), toKstOffset(comment.getUpdatedAt()));

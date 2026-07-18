@@ -89,7 +89,7 @@ public class ReportService {
             throw new CustomException(ErrorCode.NOT_GROUP_MEMBER);
         }
 
-        Report report = saveReport(userId, request);
+        Report report = saveReport(userId, request, null);
         shot.markUnderReview();
         discordReportNotifier.notify(report);
     }
@@ -111,18 +111,18 @@ public class ReportService {
             throw new CustomException(ErrorCode.NOT_GROUP_MEMBER);
         }
 
-        Report report = saveReport(userId, request);
-        comment.markUnderReview();
+        Report report = saveReport(userId, request, comment.getContent());
         discordReportNotifier.notify(report);
     }
 
-    private Report saveReport(Long userId, ReportRequest request) {
+    private Report saveReport(Long userId, ReportRequest request, String reportedContent) {
         return reportRepository.save(Report.builder()
                 .reporterId(userId)
                 .targetType(request.targetType())
                 .targetId(request.targetId())
                 .reasonCode(request.reasonCode())
                 .reasonText(request.reasonText())
+                .reportedContent(reportedContent)
                 .build());
     }
 }
