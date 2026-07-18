@@ -41,7 +41,12 @@ public enum ErrorCode {
 
     SHOT_NOT_FOUND(HttpStatus.NOT_FOUND, "사진을 찾을 수 없습니다."),
     SHOT_UNDER_REVIEW(HttpStatus.CONFLICT, "검토중인 사진은 교체할 수 없습니다."),
-    CYCLE_PAUSED(HttpStatus.CONFLICT, "신고 검토중인 회차라 참여할 수 없습니다.");
+    CYCLE_PAUSED(HttpStatus.CONFLICT, "신고 검토중인 회차라 참여할 수 없습니다."),
+
+    SHOT_LOCKED(HttpStatus.FORBIDDEN, "잠금 상태의 사진입니다."),
+    COMMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "코멘트를 찾을 수 없습니다."),
+    COMMENT_FORBIDDEN(HttpStatus.FORBIDDEN, "본인이 작성한 코멘트가 아닙니다."),
+    COMMENT_UNDER_REVIEW(HttpStatus.CONFLICT, "검토중인 코멘트는 수정할 수 없습니다.");
 
     private final HttpStatus status;
     private final String message;
