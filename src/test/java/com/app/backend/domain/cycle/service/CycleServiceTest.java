@@ -9,6 +9,7 @@ import com.app.backend.domain.group.repository.GroupRepository;
 import com.app.backend.domain.group.repository.MembershipRepository;
 import com.app.backend.domain.notification.service.NotificationService;
 import com.app.backend.domain.shot.repository.ShotRepository;
+import com.app.backend.domain.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -43,13 +44,16 @@ class CycleServiceTest {
     @Mock
     private NotificationService notificationService;
 
+    @Mock
+    private UserRepository userRepository;
+
     private CycleService cycleService;
 
     @BeforeEach
     void setUp() {
         cycleService = new CycleService(
                 groupRepository, membershipRepository, cycleRepository,
-                shotRepository, notificationService);
+                shotRepository, notificationService, userRepository);
     }
 
     private Group group(String name) {

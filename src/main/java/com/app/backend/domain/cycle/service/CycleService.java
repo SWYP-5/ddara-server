@@ -10,41 +10,54 @@ import com.app.backend.domain.group.entity.Group;
 import com.app.backend.domain.group.repository.GroupRepository;
 import com.app.backend.domain.group.repository.MembershipRepository;
 import com.app.backend.domain.notification.service.NotificationService;
-import com.app.backend.domain.shot.entity.ReviewStatus;
 import com.app.backend.domain.shot.entity.Shot;
 import com.app.backend.domain.shot.entity.ShotType;
 import com.app.backend.domain.shot.repository.ShotRepository;
+import com.app.backend.domain.user.entity.User;
+import com.app.backend.domain.user.repository.UserRepository;
 import com.app.backend.global.exception.CustomException;
 import com.app.backend.global.exception.ErrorCode;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 public class CycleService {
 
     private static final int MIN_MEMBERS_TO_START = 3;
     private static final int CYCLE_DURATION_HOURS = 24;
+    // 시각 필드는 KST 오프셋(+09:00)을 붙여 응답
+    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
 
     private final GroupRepository groupRepository;
     private final MembershipRepository membershipRepository;
     private final CycleRepository cycleRepository;
     private final ShotRepository shotRepository;
     private final NotificationService notificationService;
+    private final UserRepository userRepository;
 
     public CycleService(GroupRepository groupRepository,
                         MembershipRepository membershipRepository,
                         CycleRepository cycleRepository,
                         ShotRepository shotRepository,
-                        NotificationService notificationService) {
+                        NotificationService notificationService,
+                        UserRepository userRepository) {
         this.groupRepository = groupRepository;
         this.membershipRepository = membershipRepository;
         this.cycleRepository = cycleRepository;
         this.shotRepository = shotRepository;
         this.notificationService = notificationService;
+        this.userRepository = userRepository;
     }
 
     @Transactional
@@ -87,36 +100,77 @@ public class CycleService {
     }
 
     @Transactional(readOnly = true)
-    public PastCyclesResponse getPastCycles(Long userId, Long groupId) {
+    public PastCyclesResponse getPastCycles(Long userId, Long groupId, Integer year, Integer month) {
         if (!groupRepository.existsById(groupId)) {
             throw new CustomException(ErrorCode.GROUP_NOT_FOUND);
         }
         if (!membershipRepository.existsByGroupIdAndUserIdAndLeftAtIsNull(groupId, userId)) {
             throw new CustomException(ErrorCode.NOT_GROUP_MEMBER);
         }
+        if ((year == null) != (month == null) || (month != null && (month < 1 || month > 12))) {
+            throw new CustomException(ErrorCode.INVALID_INPUT);
+        }
 
-        List<PastCyclesResponse.PastCycle> cycles = cycleRepository
-                .findByGroupIdAndStatusOrderByCycleNumberDesc(groupId, CycleStatus.DONE).stream()
-                .map(cycle -> {
-                    Optional<Shot> starterShot = shotRepository
-                            .findByCycleIdAndType(cycle.getId(), ShotType.STARTER);
-                    boolean underReview = starterShot.map(Shot::isUnderReview).orElse(false);
-                    String thumbnailUrl = underReview ? null
-                            : starterShot.map(Shot::getImageUrl).orElse(null);
-                    long participantCount = shotRepository
-                            .countByCycleIdAndDeletedAtIsNullAndReviewStatusNot(cycle.getId(), ReviewStatus.REMOVED);
-                    return new PastCyclesResponse.PastCycle(
-                            cycle.getId(),
-                            cycle.getTopic(),
-                            thumbnailUrl,
-                            underReview,
-                            cycle.getStarterUserId(),
-                            participantCount,
-                            cycle.getStartedAt());
-                })
-                .toList();
+        List<Cycle> doneCycles = cycleRepository
+                .findByGroupIdAndStatusOrderByCycleNumberDesc(groupId, CycleStatus.DONE);
+        if (year != null) {
+            LocalDateTime start = LocalDateTime.of(year, month, 1, 0, 0);
+            LocalDateTime end = start.plusMonths(1);
+            doneCycles = doneCycles.stream()
+                    .filter(c -> !c.getStartedAt().isBefore(start) && c.getStartedAt().isBefore(end))
+                    .toList();
+        }
 
-        return new PastCyclesResponse(cycles);
+        // 업로드순으로 조회
+        Map<Long, List<Shot>> shotsByCycle = new LinkedHashMap<>();
+        for (Cycle cycle : doneCycles) {
+            List<Shot> shots = shotRepository.findByCycleIdAndDeletedAtIsNull(cycle.getId()).stream()
+                    .filter(s -> !s.isRemoved())
+                    .sorted(Comparator.comparing(Shot::getUploadedAt,
+                            Comparator.nullsFirst(Comparator.naturalOrder())))
+                    .toList();
+            shotsByCycle.put(cycle.getId(), shots);
+        }
+        Map<Long, User> usersById = userRepository.findAllById(
+                        shotsByCycle.values().stream()
+                                .flatMap(List::stream)
+                                .map(Shot::getUserId)
+                                .distinct()
+                                .toList()).stream()
+                .collect(Collectors.toMap(User::getId, Function.identity()));
+
+        long myCount = 0;
+        List<PastCyclesResponse.PastCycle> cycles = new ArrayList<>();
+        for (Cycle cycle : doneCycles) {
+            List<Shot> shots = shotsByCycle.get(cycle.getId());
+            if (shots.stream().anyMatch(s -> s.getUserId().equals(userId))) {
+                myCount++;
+            }
+            Optional<Shot> starterShot = shotRepository
+                    .findByCycleIdAndType(cycle.getId(), ShotType.STARTER);
+            boolean underReview = starterShot.map(Shot::isUnderReview).orElse(false);
+            String thumbnailUrl = underReview ? null
+                    : starterShot.map(Shot::getImageUrl).orElse(null);
+            List<PastCyclesResponse.Participant> participants = shots.stream()
+                    .map(s -> new PastCyclesResponse.Participant(
+                            s.getUserId(),
+                            Optional.ofNullable(usersById.get(s.getUserId()))
+                                    .map(User::getProfileImageUrl)
+                                    .orElse(null)))
+                    .toList();
+            cycles.add(new PastCyclesResponse.PastCycle(
+                    cycle.getId(),
+                    cycle.getTopic(),
+                    thumbnailUrl,
+                    underReview,
+                    cycle.getStarterUserId(),
+                    shots.size(),
+                    participants,
+                    cycle.getStartedAt().atZone(SEOUL).toOffsetDateTime()));
+        }
+
+        return new PastCyclesResponse(
+                new PastCyclesResponse.Stats(myCount, doneCycles.size()), cycles);
     }
 
     // 시작 후 24h(deadline) 지난 진행 중 회차를 일괄 마감 (스케줄러용)
