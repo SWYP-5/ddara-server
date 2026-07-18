@@ -203,7 +203,15 @@ public class GroupService {
                     boolean underReview = starterShot.map(Shot::isUnderReview).orElse(false);
                     String starterImageUrl = underReview ? null
                             : starterShot.map(Shot::getImageUrl).orElse(null);
-                    return CurrentCycleDetailResponse.from(c, starterNickname, starterImageUrl, underReview);
+                    // 업로드 친구 확인용 - 업로드순, 스타터 제외, 삭제 판정 제외
+                    List<Long> uploadedUserIds = shotRepository.findByCycleIdAndDeletedAtIsNull(c.getId()).stream()
+                            .filter(s -> !s.isRemoved() && s.getType() == ShotType.MEMBER)
+                            .sorted(Comparator.comparing(Shot::getUploadedAt,
+                                    Comparator.nullsFirst(Comparator.naturalOrder())))
+                            .map(Shot::getUserId)
+                            .toList();
+                    return CurrentCycleDetailResponse.from(c, starterNickname, starterImageUrl, underReview,
+                            uploadedUserIds);
                 })
                 .orElse(null);
 

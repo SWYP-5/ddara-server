@@ -4,6 +4,7 @@ import com.app.backend.domain.cycle.entity.Cycle;
 import com.app.backend.domain.cycle.entity.CycleStatus;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public record CurrentCycleDetailResponse(
         Long cycleId,
@@ -15,10 +16,12 @@ public record CurrentCycleDetailResponse(
         boolean starterImageUnderReview,
         CycleStatus status,
         LocalDateTime startedAt,
-        LocalDateTime deadlineAt
+        LocalDateTime deadlineAt,
+        List<Long> uploadedUserIds
 ) {
     public static CurrentCycleDetailResponse from(Cycle cycle, String starterNickname,
-                                                  String starterImageUrl, boolean starterImageUnderReview) {
+                                                  String starterImageUrl, boolean starterImageUnderReview,
+                                                  List<Long> uploadedUserIds) {
         return new CurrentCycleDetailResponse(
                 cycle.getId(),
                 cycle.getCycleNumber(),
@@ -29,7 +32,8 @@ public record CurrentCycleDetailResponse(
                 starterImageUnderReview,
                 cycle.getStatus(),
                 cycle.getStartedAt(),
-                cycle.getDeadlineAt()
+                cycle.getDeadlineAt(),
+                uploadedUserIds
         );
     }
 }
