@@ -1,5 +1,7 @@
 package com.app.backend.domain.report.service;
 
+import com.app.backend.domain.comment.entity.Comment;
+import com.app.backend.domain.comment.repository.CommentRepository;
 import com.app.backend.domain.cycle.entity.Cycle;
 import com.app.backend.domain.cycle.repository.CycleRepository;
 import com.app.backend.domain.group.repository.MembershipRepository;
@@ -7,6 +9,7 @@ import com.app.backend.domain.report.client.DiscordReportNotifier;
 import com.app.backend.domain.report.dto.ReportRequest;
 import com.app.backend.domain.report.entity.Report;
 import com.app.backend.domain.report.entity.ReportReason;
+import com.app.backend.domain.report.entity.ReportTargetType;
 import com.app.backend.domain.report.repository.ReportRepository;
 import com.app.backend.domain.shot.entity.Shot;
 import com.app.backend.domain.shot.repository.ShotRepository;
@@ -15,22 +18,35 @@ import com.app.backend.global.exception.ErrorCode;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.EnumSet;
+import java.util.Set;
+
 @Service
 public class ReportService {
 
+    private static final Set<ReportReason> SHOT_REASONS = EnumSet.of(
+            ReportReason.OBSCENE, ReportReason.VIOLENCE, ReportReason.UNAUTHORIZED_PHOTO,
+            ReportReason.HARASSMENT, ReportReason.ETC);
+    private static final Set<ReportReason> COMMENT_REASONS = EnumSet.of(
+            ReportReason.ABUSE, ReportReason.SEXUAL, ReportReason.HATE,
+            ReportReason.IMPERSONATION, ReportReason.PRIVACY, ReportReason.ETC);
+
     private final ReportRepository reportRepository;
     private final ShotRepository shotRepository;
+    private final CommentRepository commentRepository;
     private final CycleRepository cycleRepository;
     private final MembershipRepository membershipRepository;
     private final DiscordReportNotifier discordReportNotifier;
 
     public ReportService(ReportRepository reportRepository,
                          ShotRepository shotRepository,
+                         CommentRepository commentRepository,
                          CycleRepository cycleRepository,
                          MembershipRepository membershipRepository,
                          DiscordReportNotifier discordReportNotifier) {
         this.reportRepository = reportRepository;
         this.shotRepository = shotRepository;
+        this.commentRepository = commentRepository;
         this.cycleRepository = cycleRepository;
         this.membershipRepository = membershipRepository;
         this.discordReportNotifier = discordReportNotifier;
@@ -38,11 +54,27 @@ public class ReportService {
 
     @Transactional
     public void report(Long userId, ReportRequest request) {
+        validateReason(request);
+        if (request.targetType() == ReportTargetType.SHOT) {
+            reportShot(userId, request);
+        } else {
+            reportComment(userId, request);
+        }
+    }
+
+    private void validateReason(ReportRequest request) {
+        Set<ReportReason> allowed = request.targetType() == ReportTargetType.SHOT
+                ? SHOT_REASONS : COMMENT_REASONS;
+        if (!allowed.contains(request.reasonCode())) {
+            throw new CustomException(ErrorCode.INVALID_INPUT);
+        }
         if (request.reasonCode() == ReportReason.ETC
                 && (request.reasonText() == null || request.reasonText().isBlank())) {
             throw new CustomException(ErrorCode.INVALID_INPUT);
         }
+    }
 
+    private void reportShot(Long userId, ReportRequest request) {
         Shot shot = shotRepository.findById(request.targetId())
                 .filter(s -> s.getDeletedAt() == null && !s.isRemoved())
                 .orElseThrow(() -> new CustomException(ErrorCode.SHOT_NOT_FOUND));
@@ -57,16 +89,40 @@ public class ReportService {
             throw new CustomException(ErrorCode.NOT_GROUP_MEMBER);
         }
 
-        Report report = reportRepository.save(Report.builder()
+        Report report = saveReport(userId, request);
+        shot.markUnderReview();
+        discordReportNotifier.notify(report);
+    }
+
+    private void reportComment(Long userId, ReportRequest request) {
+        Comment comment = commentRepository.findById(request.targetId())
+                .filter(c -> c.getDeletedAt() == null && !c.isRemoved())
+                .orElseThrow(() -> new CustomException(ErrorCode.COMMENT_NOT_FOUND));
+
+        if (comment.getUserId().equals(userId)) {
+            throw new CustomException(ErrorCode.INVALID_INPUT);
+        }
+
+        Shot shot = shotRepository.findById(comment.getShotId())
+                .orElseThrow(() -> new CustomException(ErrorCode.COMMENT_NOT_FOUND));
+        Cycle cycle = cycleRepository.findById(shot.getCycleId())
+                .orElseThrow(() -> new CustomException(ErrorCode.COMMENT_NOT_FOUND));
+        if (!membershipRepository.existsByGroupIdAndUserIdAndLeftAtIsNull(cycle.getGroupId(), userId)) {
+            throw new CustomException(ErrorCode.NOT_GROUP_MEMBER);
+        }
+
+        Report report = saveReport(userId, request);
+        comment.markUnderReview();
+        discordReportNotifier.notify(report);
+    }
+
+    private Report saveReport(Long userId, ReportRequest request) {
+        return reportRepository.save(Report.builder()
                 .reporterId(userId)
                 .targetType(request.targetType())
                 .targetId(request.targetId())
                 .reasonCode(request.reasonCode())
                 .reasonText(request.reasonText())
                 .build());
-
-        shot.markUnderReview();
-
-        discordReportNotifier.notify(report);
     }
 }
