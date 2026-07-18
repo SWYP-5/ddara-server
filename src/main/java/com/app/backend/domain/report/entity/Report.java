@@ -45,6 +45,9 @@ public class Report {
     @Column(name = "reason_text", length = 200)
     private String reasonText;
 
+    @Column(name = "reported_content", length = 200)
+    private String reportedContent;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private ReportStatus status = ReportStatus.PENDING;
@@ -55,11 +58,12 @@ public class Report {
 
     @Builder
     private Report(Long reporterId, ReportTargetType targetType, Long targetId,
-                   ReportReason reasonCode, String reasonText) {
+                   ReportReason reasonCode, String reasonText, String reportedContent) {
         this.reporterId = reporterId;
         this.targetType = targetType;
         this.targetId = targetId;
         this.reasonCode = reasonCode;
         this.reasonText = reasonText;
+        this.reportedContent = reportedContent;
     }
 }
