@@ -1,6 +1,7 @@
 package com.app.backend.domain.report.client;
 
 import com.app.backend.domain.report.entity.Report;
+import com.app.backend.domain.report.entity.ReportTargetType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -33,8 +34,9 @@ public class DiscordReportNotifier {
             log.warn("신고 웹훅 URL 미설정 — 통지 생략: reportId={}", report.getId());
             return;
         }
-        String content = "🚨 사진 신고 접수\n"
-                + "사진 id: " + report.getTargetId() + "\n"
+        String targetLabel = report.getTargetType() == ReportTargetType.COMMENT ? "코멘트" : "사진";
+        String content = "🚨 " + targetLabel + " 신고 접수\n"
+                + targetLabel + " id: " + report.getTargetId() + "\n"
                 + "사유: " + report.getReasonCode()
                 + (report.getReasonText() != null ? " (" + report.getReasonText() + ")" : "") + "\n"
                 + "신고자 id: " + report.getReporterId() + "\n"
