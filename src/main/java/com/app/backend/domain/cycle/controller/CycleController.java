@@ -37,7 +37,9 @@ public class CycleController {
     @GetMapping
     public PastCyclesResponse getPastCycles(@AuthenticationPrincipal Long userId,
                                             @PathVariable Long groupId,
-                                            @RequestParam String status) {
-        return cycleService.getPastCycles(userId, groupId);
+                                            @RequestParam String status,
+                                            @RequestParam(required = false) Integer year,
+                                            @RequestParam(required = false) Integer month) {
+        return cycleService.getPastCycles(userId, groupId, year, month);
     }
 }
