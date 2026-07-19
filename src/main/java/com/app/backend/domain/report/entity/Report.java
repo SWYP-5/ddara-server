@@ -38,6 +38,9 @@ public class Report {
     @Column(name = "target_id", nullable = false)
     private Long targetId;
 
+    @Column(name = "target_group_id")
+    private Long targetGroupId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "reason_code", nullable = false, length = 30)
     private ReportReason reasonCode;
@@ -57,11 +60,12 @@ public class Report {
     private LocalDateTime createdAt;
 
     @Builder
-    private Report(Long reporterId, ReportTargetType targetType, Long targetId,
+    private Report(Long reporterId, ReportTargetType targetType, Long targetId, Long targetGroupId,
                    ReportReason reasonCode, String reasonText, String reportedContent) {
         this.reporterId = reporterId;
         this.targetType = targetType;
         this.targetId = targetId;
+        this.targetGroupId = targetGroupId;
         this.reasonCode = reasonCode;
         this.reasonText = reasonText;
         this.reportedContent = reportedContent;

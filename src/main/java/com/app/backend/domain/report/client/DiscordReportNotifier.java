@@ -34,7 +34,11 @@ public class DiscordReportNotifier {
             log.warn("신고 웹훅 URL 미설정 — 통지 생략: reportId={}", report.getId());
             return;
         }
-        String targetLabel = report.getTargetType() == ReportTargetType.COMMENT ? "코멘트" : "사진";
+        String targetLabel = switch (report.getTargetType()) {
+            case COMMENT -> "코멘트";
+            case USER -> "유저";
+            default -> "사진";
+        };
         String content = "🚨 " + targetLabel + " 신고 접수\n"
                 + targetLabel + " id: " + report.getTargetId() + "\n"
                 + "사유: " + report.getReasonCode()

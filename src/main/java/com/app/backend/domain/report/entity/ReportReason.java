@@ -12,6 +12,9 @@ public enum ReportReason {
     HATE,
     IMPERSONATION,
     PRIVACY,
+    // 유저(USER)
+    INAPPROPRIATE_NICKNAME,
+    INAPPROPRIATE_IMAGE,
     // 공통
     ETC
 }

@@ -4,6 +4,7 @@ import com.app.backend.domain.comment.entity.Comment;
 import com.app.backend.domain.comment.repository.CommentRepository;
 import com.app.backend.domain.cycle.entity.Cycle;
 import com.app.backend.domain.cycle.repository.CycleRepository;
+import com.app.backend.domain.group.entity.Membership;
 import com.app.backend.domain.group.repository.MembershipRepository;
 import com.app.backend.domain.report.client.DiscordReportNotifier;
 import com.app.backend.domain.report.dto.ReportRequest;
@@ -30,6 +31,9 @@ public class ReportService {
     private static final Set<ReportReason> COMMENT_REASONS = EnumSet.of(
             ReportReason.ABUSE, ReportReason.SEXUAL, ReportReason.HATE,
             ReportReason.IMPERSONATION, ReportReason.PRIVACY, ReportReason.ETC);
+    private static final Set<ReportReason> USER_REASONS = EnumSet.of(
+            ReportReason.INAPPROPRIATE_NICKNAME, ReportReason.INAPPROPRIATE_IMAGE,
+            ReportReason.HARASSMENT, ReportReason.ETC);
 
     private final ReportRepository reportRepository;
     private final ShotRepository shotRepository;
@@ -55,16 +59,19 @@ public class ReportService {
     @Transactional
     public void report(Long userId, ReportRequest request) {
         validateReason(request);
-        if (request.targetType() == ReportTargetType.SHOT) {
-            reportShot(userId, request);
-        } else {
-            reportComment(userId, request);
+        switch (request.targetType()) {
+            case SHOT -> reportShot(userId, request);
+            case COMMENT -> reportComment(userId, request);
+            case USER -> reportUser(userId, request);
         }
     }
 
     private void validateReason(ReportRequest request) {
-        Set<ReportReason> allowed = request.targetType() == ReportTargetType.SHOT
-                ? SHOT_REASONS : COMMENT_REASONS;
+        Set<ReportReason> allowed = switch (request.targetType()) {
+            case SHOT -> SHOT_REASONS;
+            case COMMENT -> COMMENT_REASONS;
+            case USER -> USER_REASONS;
+        };
         if (!allowed.contains(request.reasonCode())) {
             throw new CustomException(ErrorCode.INVALID_INPUT);
         }
@@ -89,7 +96,7 @@ public class ReportService {
             throw new CustomException(ErrorCode.NOT_GROUP_MEMBER);
         }
 
-        Report report = saveReport(userId, request, null);
+        Report report = saveReport(userId, request, null, null);
         shot.markUnderReview();
         discordReportNotifier.notify(report);
     }
@@ -111,15 +118,35 @@ public class ReportService {
             throw new CustomException(ErrorCode.NOT_GROUP_MEMBER);
         }
 
-        Report report = saveReport(userId, request, comment.getContent());
+        Report report = saveReport(userId, request, null, comment.getContent());
         discordReportNotifier.notify(report);
     }
 
-    private Report saveReport(Long userId, ReportRequest request, String reportedContent) {
+    private void reportUser(Long userId, ReportRequest request) {
+        if (request.groupId() == null) {
+            throw new CustomException(ErrorCode.INVALID_INPUT);
+        }
+        if (request.targetId().equals(userId)) {
+            throw new CustomException(ErrorCode.INVALID_INPUT);
+        }
+        if (!membershipRepository.existsByGroupIdAndUserIdAndLeftAtIsNull(request.groupId(), userId)) {
+            throw new CustomException(ErrorCode.NOT_GROUP_MEMBER);
+        }
+        Membership target = membershipRepository
+                .findByGroupIdAndUserId(request.groupId(), request.targetId())
+                .filter(m -> m.getLeftAt() == null)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        Report report = saveReport(userId, request, request.groupId(), target.getNickname());
+        discordReportNotifier.notify(report);
+    }
+
+    private Report saveReport(Long userId, ReportRequest request, Long targetGroupId, String reportedContent) {
         return reportRepository.save(Report.builder()
                 .reporterId(userId)
                 .targetType(request.targetType())
                 .targetId(request.targetId())
+                .targetGroupId(targetGroupId)
                 .reasonCode(request.reasonCode())
                 .reasonText(request.reasonText())
                 .reportedContent(reportedContent)
