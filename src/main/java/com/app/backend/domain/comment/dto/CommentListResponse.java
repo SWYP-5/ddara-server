@@ -13,6 +13,7 @@ public record CommentListResponse(
             String profileImageUrl,
             String content,
             boolean underReview,
+            boolean reportedByMe,
             OffsetDateTime createdAt,
             OffsetDateTime updatedAt
     ) {

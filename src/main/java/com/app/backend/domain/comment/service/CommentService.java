@@ -10,6 +10,9 @@ import com.app.backend.domain.cycle.entity.CycleStatus;
 import com.app.backend.domain.cycle.repository.CycleRepository;
 import com.app.backend.domain.group.entity.Membership;
 import com.app.backend.domain.group.repository.MembershipRepository;
+import com.app.backend.domain.report.entity.Report;
+import com.app.backend.domain.report.entity.ReportTargetType;
+import com.app.backend.domain.report.repository.ReportRepository;
 import com.app.backend.domain.shot.entity.Shot;
 import com.app.backend.domain.shot.entity.ShotType;
 import com.app.backend.domain.shot.repository.ShotRepository;
@@ -26,6 +29,7 @@ import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -39,17 +43,32 @@ public class CommentService {
     private final CycleRepository cycleRepository;
     private final MembershipRepository membershipRepository;
     private final UserRepository userRepository;
+    private final ReportRepository reportRepository;
 
     public CommentService(CommentRepository commentRepository,
                           ShotRepository shotRepository,
                           CycleRepository cycleRepository,
                           MembershipRepository membershipRepository,
-                          UserRepository userRepository) {
+                          UserRepository userRepository,
+                          ReportRepository reportRepository) {
         this.commentRepository = commentRepository;
         this.shotRepository = shotRepository;
         this.cycleRepository = cycleRepository;
         this.membershipRepository = membershipRepository;
         this.userRepository = userRepository;
+        this.reportRepository = reportRepository;
+    }
+
+    // 요청자가 신고한 코멘트 id 집합
+    private Set<Long> reportedCommentIds(Long userId, List<Long> commentIds) {
+        if (commentIds.isEmpty()) {
+            return Set.of();
+        }
+        return reportRepository
+                .findByReporterIdAndTargetTypeAndTargetIdIn(userId, ReportTargetType.COMMENT, commentIds)
+                .stream()
+                .map(Report::getTargetId)
+                .collect(Collectors.toSet());
     }
 
     @Transactional
@@ -102,6 +121,7 @@ public class CommentService {
                         membershipRepository.findByGroupIdAndUserId(cycle.getGroupId(), writerId)
                                 .map(Membership::getNickname)
                                 .orElse("탈퇴한사용자")));
+        Set<Long> reportedByMe = reportedCommentIds(userId, comments.stream().map(Comment::getId).toList());
 
         List<CommentListResponse.CommentItem> items = comments.stream()
                 .map(c -> new CommentListResponse.CommentItem(
@@ -113,6 +133,7 @@ public class CommentService {
                                 .orElse(null),
                         c.isUnderReview() ? null : c.getContent(),
                         c.isUnderReview(),
+                        reportedByMe.contains(c.getId()),
                         toKstOffset(c.getCreatedAt()),
                         toKstOffset(c.getUpdatedAt())))
                 .toList();
