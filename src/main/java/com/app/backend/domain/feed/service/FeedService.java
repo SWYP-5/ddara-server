@@ -10,6 +10,9 @@ import com.app.backend.domain.group.entity.Group;
 import com.app.backend.domain.group.entity.Membership;
 import com.app.backend.domain.group.repository.GroupRepository;
 import com.app.backend.domain.group.repository.MembershipRepository;
+import com.app.backend.domain.report.entity.Report;
+import com.app.backend.domain.report.entity.ReportTargetType;
+import com.app.backend.domain.report.repository.ReportRepository;
 import com.app.backend.domain.shot.entity.Shot;
 import com.app.backend.domain.shot.entity.ShotType;
 import com.app.backend.domain.shot.repository.ShotRepository;
@@ -43,19 +46,22 @@ public class FeedService {
     private final ShotRepository shotRepository;
     private final CommentRepository commentRepository;
     private final UserRepository userRepository;
+    private final ReportRepository reportRepository;
 
     public FeedService(MembershipRepository membershipRepository,
                        GroupRepository groupRepository,
                        CycleRepository cycleRepository,
                        ShotRepository shotRepository,
                        CommentRepository commentRepository,
-                       UserRepository userRepository) {
+                       UserRepository userRepository,
+                       ReportRepository reportRepository) {
         this.membershipRepository = membershipRepository;
         this.groupRepository = groupRepository;
         this.cycleRepository = cycleRepository;
         this.shotRepository = shotRepository;
         this.commentRepository = commentRepository;
         this.userRepository = userRepository;
+        this.reportRepository = reportRepository;
     }
 
     @Transactional(readOnly = true)
@@ -117,6 +123,15 @@ public class FeedService {
                         .toList())
                 .forEach(u -> profileByUserId.put(u.getId(), u.getProfileImageUrl()));
 
+        // 요청자가 신고한 코멘트 id 집합
+        List<Long> pageCommentIds = commentsByShot.values().stream()
+                .flatMap(List::stream).map(Comment::getId).toList();
+        Set<Long> reportedByMe = pageCommentIds.isEmpty() ? Set.of()
+                : reportRepository.findByReporterIdAndTargetTypeAndTargetIdIn(
+                        userId, ReportTargetType.COMMENT, pageCommentIds).stream()
+                .map(Report::getTargetId)
+                .collect(Collectors.toSet());
+
         Map<String, String> nicknameCache = new HashMap<>();
         List<FeedResponse.FeedItem> items = page.stream()
                 .map(shot -> {
@@ -135,7 +150,8 @@ public class FeedService {
                                     nickname(nicknameCache, group.getId(), c.getUserId()),
                                     profileByUserId.get(c.getUserId()),
                                     c.isUnderReview() ? null : c.getContent(),
-                                    c.isUnderReview()))
+                                    c.isUnderReview(),
+                                    reportedByMe.contains(c.getId())))
                             .toList();
                     return new FeedResponse.FeedItem(
                             shot.getId(),

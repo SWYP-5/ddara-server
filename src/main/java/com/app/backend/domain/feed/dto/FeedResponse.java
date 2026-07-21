@@ -32,7 +32,8 @@ public record FeedResponse(
             String nickname,
             String profileImageUrl,
             String content,
-            boolean underReview
+            boolean underReview,
+            boolean reportedByMe
     ) {
     }
 }
