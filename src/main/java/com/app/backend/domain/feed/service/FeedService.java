@@ -13,6 +13,8 @@ import com.app.backend.domain.group.repository.MembershipRepository;
 import com.app.backend.domain.shot.entity.Shot;
 import com.app.backend.domain.shot.entity.ShotType;
 import com.app.backend.domain.shot.repository.ShotRepository;
+import com.app.backend.domain.user.entity.User;
+import com.app.backend.domain.user.repository.UserRepository;
 import com.app.backend.global.exception.CustomException;
 import com.app.backend.global.exception.ErrorCode;
 import org.springframework.stereotype.Service;
@@ -40,17 +42,20 @@ public class FeedService {
     private final CycleRepository cycleRepository;
     private final ShotRepository shotRepository;
     private final CommentRepository commentRepository;
+    private final UserRepository userRepository;
 
     public FeedService(MembershipRepository membershipRepository,
                        GroupRepository groupRepository,
                        CycleRepository cycleRepository,
                        ShotRepository shotRepository,
-                       CommentRepository commentRepository) {
+                       CommentRepository commentRepository,
+                       UserRepository userRepository) {
         this.membershipRepository = membershipRepository;
         this.groupRepository = groupRepository;
         this.cycleRepository = cycleRepository;
         this.shotRepository = shotRepository;
         this.commentRepository = commentRepository;
+        this.userRepository = userRepository;
     }
 
     @Transactional(readOnly = true)
@@ -104,6 +109,14 @@ public class FeedService {
                 .filter(c -> !c.isRemoved())
                 .collect(Collectors.groupingBy(Comment::getShotId));
 
+        Map<Long, String> profileByUserId = new HashMap<>();
+        userRepository.findAllById(commentsByShot.values().stream()
+                        .flatMap(List::stream)
+                        .map(Comment::getUserId)
+                        .distinct()
+                        .toList())
+                .forEach(u -> profileByUserId.put(u.getId(), u.getProfileImageUrl()));
+
         Map<String, String> nicknameCache = new HashMap<>();
         List<FeedResponse.FeedItem> items = page.stream()
                 .map(shot -> {
@@ -120,6 +133,7 @@ public class FeedService {
                             .map(c -> new FeedResponse.LatestComment(
                                     c.getUserId(),
                                     nickname(nicknameCache, group.getId(), c.getUserId()),
+                                    profileByUserId.get(c.getUserId()),
                                     c.isUnderReview() ? null : c.getContent(),
                                     c.isUnderReview()))
                             .toList();

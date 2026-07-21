@@ -30,6 +30,7 @@ public record FeedResponse(
     public record LatestComment(
             Long userId,
             String nickname,
+            String profileImageUrl,
             String content,
             boolean underReview
     ) {
