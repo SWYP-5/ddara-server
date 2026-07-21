@@ -15,6 +15,8 @@ public enum ReportReason {
     // 유저(USER)
     INAPPROPRIATE_NICKNAME,
     INAPPROPRIATE_IMAGE,
+    // 모임(GROUP)
+    INAPPROPRIATE_GROUP,
     // 공통
     ETC
 }
