@@ -4,7 +4,9 @@ import com.app.backend.domain.comment.entity.Comment;
 import com.app.backend.domain.comment.repository.CommentRepository;
 import com.app.backend.domain.cycle.entity.Cycle;
 import com.app.backend.domain.cycle.repository.CycleRepository;
+import com.app.backend.domain.group.entity.Group;
 import com.app.backend.domain.group.entity.Membership;
+import com.app.backend.domain.group.repository.GroupRepository;
 import com.app.backend.domain.group.repository.MembershipRepository;
 import com.app.backend.domain.report.client.DiscordReportNotifier;
 import com.app.backend.domain.report.dto.ReportRequest;
@@ -34,12 +36,15 @@ public class ReportService {
     private static final Set<ReportReason> USER_REASONS = EnumSet.of(
             ReportReason.INAPPROPRIATE_NICKNAME, ReportReason.INAPPROPRIATE_IMAGE,
             ReportReason.HARASSMENT, ReportReason.ETC);
+    private static final Set<ReportReason> GROUP_REASONS = EnumSet.of(
+            ReportReason.INAPPROPRIATE_GROUP, ReportReason.ETC);
 
     private final ReportRepository reportRepository;
     private final ShotRepository shotRepository;
     private final CommentRepository commentRepository;
     private final CycleRepository cycleRepository;
     private final MembershipRepository membershipRepository;
+    private final GroupRepository groupRepository;
     private final DiscordReportNotifier discordReportNotifier;
 
     public ReportService(ReportRepository reportRepository,
@@ -47,12 +52,14 @@ public class ReportService {
                          CommentRepository commentRepository,
                          CycleRepository cycleRepository,
                          MembershipRepository membershipRepository,
+                         GroupRepository groupRepository,
                          DiscordReportNotifier discordReportNotifier) {
         this.reportRepository = reportRepository;
         this.shotRepository = shotRepository;
         this.commentRepository = commentRepository;
         this.cycleRepository = cycleRepository;
         this.membershipRepository = membershipRepository;
+        this.groupRepository = groupRepository;
         this.discordReportNotifier = discordReportNotifier;
     }
 
@@ -63,6 +70,7 @@ public class ReportService {
             case SHOT -> reportShot(userId, request);
             case COMMENT -> reportComment(userId, request);
             case USER -> reportUser(userId, request);
+            case GROUP -> reportGroup(userId, request);
         }
     }
 
@@ -71,6 +79,7 @@ public class ReportService {
             case SHOT -> SHOT_REASONS;
             case COMMENT -> COMMENT_REASONS;
             case USER -> USER_REASONS;
+            case GROUP -> GROUP_REASONS;
         };
         if (!allowed.contains(request.reasonCode())) {
             throw new CustomException(ErrorCode.INVALID_INPUT);
@@ -138,6 +147,18 @@ public class ReportService {
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         Report report = saveReport(userId, request, request.groupId(), target.getNickname());
+        discordReportNotifier.notify(report);
+    }
+
+    private void reportGroup(Long userId, ReportRequest request) {
+        Group group = groupRepository.findById(request.targetId())
+                .filter(g -> g.getDeletedAt() == null)
+                .orElseThrow(() -> new CustomException(ErrorCode.GROUP_NOT_FOUND));
+        if (!membershipRepository.existsByGroupIdAndUserIdAndLeftAtIsNull(group.getId(), userId)) {
+            throw new CustomException(ErrorCode.NOT_GROUP_MEMBER);
+        }
+
+        Report report = saveReport(userId, request, null, group.getName());
         discordReportNotifier.notify(report);
     }
 

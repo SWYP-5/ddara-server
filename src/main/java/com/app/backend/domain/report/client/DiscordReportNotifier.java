@@ -37,6 +37,7 @@ public class DiscordReportNotifier {
         String targetLabel = switch (report.getTargetType()) {
             case COMMENT -> "코멘트";
             case USER -> "유저";
+            case GROUP -> "모임";
             default -> "사진";
         };
         String content = "🚨 " + targetLabel + " 신고 접수\n"
