@@ -38,6 +38,8 @@ aws:
 discord:
   # 신고 접수 통지용 웹훅
   report-webhook-url: ${DISCORD_REPORT_WEBHOOK_URL:}
+  # 유저 차단 통지용 웹훅
+  block-webhook-url: ${DISCORD_BLOCK_WEBHOOK_URL:}
 
 apple:
   team-id: ${APPLE_TEAM_ID:3PVV8DQPL6}

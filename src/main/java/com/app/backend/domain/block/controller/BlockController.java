@@ -30,7 +30,7 @@ public class BlockController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void block(@AuthenticationPrincipal Long userId,
                       @Valid @RequestBody BlockRequest request) {
-        blockService.block(userId, request.userId());
+        blockService.block(userId, request.userId(), request.groupId());
     }
 
     // 차단 해제 (BLOCK-02)
