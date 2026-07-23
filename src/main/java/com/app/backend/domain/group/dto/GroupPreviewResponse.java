@@ -2,7 +2,8 @@ package com.app.backend.domain.group.dto;
 
 import com.app.backend.domain.group.entity.Group;
 
-import java.time.LocalDateTime;
+import com.app.backend.global.util.KstTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 
 public record GroupPreviewResponse(
@@ -15,7 +16,7 @@ public record GroupPreviewResponse(
         boolean isFull,
         List<String> memberAvatars,
         boolean alreadyJoined,
-        LocalDateTime createdAt
+        OffsetDateTime createdAt
 ) {
     public static GroupPreviewResponse of(Group group, String ownerNickname, long memberCount,
                                           int capacity, List<String> memberAvatars, boolean alreadyJoined) {
@@ -29,7 +30,7 @@ public record GroupPreviewResponse(
                 memberCount >= capacity,
                 memberAvatars,
                 alreadyJoined,
-                group.getCreatedAt()
+                KstTime.toOffset(group.getCreatedAt())
         );
     }
 }

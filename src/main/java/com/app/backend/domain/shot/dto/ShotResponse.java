@@ -3,7 +3,8 @@ package com.app.backend.domain.shot.dto;
 import com.app.backend.domain.shot.entity.Shot;
 import com.app.backend.domain.shot.entity.ShotType;
 
-import java.time.LocalDateTime;
+import com.app.backend.global.util.KstTime;
+import java.time.OffsetDateTime;
 
 public record ShotResponse(
         Long shotId,
@@ -11,7 +12,7 @@ public record ShotResponse(
         Long userId,
         ShotType type,
         String imageUrl,
-        LocalDateTime uploadedAt
+        OffsetDateTime uploadedAt
 ) {
     public static ShotResponse from(Shot shot) {
         return new ShotResponse(
@@ -20,7 +21,7 @@ public record ShotResponse(
                 shot.getUserId(),
                 shot.getType(),
                 shot.getImageUrl(),
-                shot.getUploadedAt()
+                KstTime.toOffset(shot.getUploadedAt())
         );
     }
 }

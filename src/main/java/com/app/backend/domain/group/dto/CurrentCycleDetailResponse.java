@@ -3,7 +3,8 @@ package com.app.backend.domain.group.dto;
 import com.app.backend.domain.cycle.entity.Cycle;
 import com.app.backend.domain.cycle.entity.CycleStatus;
 
-import java.time.LocalDateTime;
+import com.app.backend.global.util.KstTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 
 public record CurrentCycleDetailResponse(
@@ -15,8 +16,8 @@ public record CurrentCycleDetailResponse(
         String starterImageUrl,
         boolean starterImageUnderReview,
         CycleStatus status,
-        LocalDateTime startedAt,
-        LocalDateTime deadlineAt,
+        OffsetDateTime startedAt,
+        OffsetDateTime deadlineAt,
         List<Long> uploadedUserIds
 ) {
     public static CurrentCycleDetailResponse from(Cycle cycle, String starterNickname,
@@ -31,8 +32,8 @@ public record CurrentCycleDetailResponse(
                 starterImageUrl,
                 starterImageUnderReview,
                 cycle.getStatus(),
-                cycle.getStartedAt(),
-                cycle.getDeadlineAt(),
+                KstTime.toOffset(cycle.getStartedAt()),
+                KstTime.toOffset(cycle.getDeadlineAt()),
                 uploadedUserIds
         );
     }

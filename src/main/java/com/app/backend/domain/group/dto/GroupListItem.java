@@ -2,7 +2,8 @@ package com.app.backend.domain.group.dto;
 
 import com.app.backend.domain.group.entity.Group;
 
-import java.time.LocalDateTime;
+import com.app.backend.global.util.KstTime;
+import java.time.OffsetDateTime;
 
 public record GroupListItem(
         Long groupId,
@@ -13,7 +14,7 @@ public record GroupListItem(
         boolean thumbnailUnderReview,
         Long thumbnailUserId,
         CurrentCycleResponse currentCycle,
-        LocalDateTime createdAt
+        OffsetDateTime createdAt
 ) {
     public static GroupListItem of(Group group, String ownerNickname, long memberCount,
                                    String thumbnailUrl, boolean thumbnailUnderReview, Long thumbnailUserId,
@@ -27,7 +28,7 @@ public record GroupListItem(
                 thumbnailUnderReview,
                 thumbnailUserId,
                 currentCycle,
-                group.getCreatedAt()
+                KstTime.toOffset(group.getCreatedAt())
         );
     }
 }

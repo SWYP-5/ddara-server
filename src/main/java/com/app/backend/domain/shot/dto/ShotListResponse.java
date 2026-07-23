@@ -2,7 +2,7 @@ package com.app.backend.domain.shot.dto;
 
 import com.app.backend.domain.cycle.entity.CycleStatus;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 
 public record ShotListResponse(
@@ -22,7 +22,7 @@ public record ShotListResponse(
             String starterImageUrl,
             boolean starterImageUnderReview,
             CycleStatus status,
-            LocalDateTime deadlineAt
+            OffsetDateTime deadlineAt
     ) {
     }
 
@@ -34,7 +34,7 @@ public record ShotListResponse(
             boolean isStarter,
             String status,          // open / empty / locked / reported
             String imageUrl,
-            LocalDateTime uploadedAt
+            OffsetDateTime uploadedAt
     ) {
     }
 }

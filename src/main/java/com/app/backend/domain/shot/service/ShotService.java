@@ -19,11 +19,12 @@ import com.app.backend.domain.user.entity.User;
 import com.app.backend.domain.user.repository.UserRepository;
 import com.app.backend.global.exception.CustomException;
 import com.app.backend.global.exception.ErrorCode;
+import com.app.backend.global.util.KstTime;
 import com.app.backend.global.util.NicknameOrder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -141,7 +142,7 @@ public class ShotService {
 
                     String status;
                     String imageUrl;
-                    LocalDateTime uploadedAt;
+                    OffsetDateTime uploadedAt;
                     if (shot == null) {
                         status = "empty";
                         imageUrl = null;
@@ -149,12 +150,12 @@ public class ShotService {
                     } else if (shot.isUnderReview()) {
                         status = "reported";
                         imageUrl = null;
-                        uploadedAt = shot.getUploadedAt();
+                        uploadedAt = KstTime.toOffset(shot.getUploadedAt());
                     } else {
                         boolean canSee = cycleDone || viewerUploaded || isStarter || memberId.equals(userId);
                         status = canSee ? "open" : "locked";
                         imageUrl = shot.getImageUrl();
-                        uploadedAt = shot.getUploadedAt();
+                        uploadedAt = KstTime.toOffset(shot.getUploadedAt());
                     }
                     return new ShotListResponse.MemberShot(
                             memberId,
@@ -190,7 +191,7 @@ public class ShotService {
                 starterUnderReview ? null : (starterShot != null ? starterShot.getImageUrl() : null),
                 starterUnderReview,
                 cycle.getStatus(),
-                cycle.getDeadlineAt());
+                KstTime.toOffset(cycle.getDeadlineAt()));
 
         return new ShotListResponse(cycle.getGroupId(), groupName, cycleBanner, viewerUploaded, memberShots);
     }

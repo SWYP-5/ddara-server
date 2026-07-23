@@ -2,14 +2,15 @@ package com.app.backend.domain.group.dto;
 
 import com.app.backend.domain.group.entity.Group;
 
-import java.time.LocalDateTime;
+import com.app.backend.global.util.KstTime;
+import java.time.OffsetDateTime;
 
 public record GroupCreateResponse(
         Long groupId,
         String name,
         String description,
         String inviteCode,
-        LocalDateTime createdAt
+        OffsetDateTime createdAt
 ) {
     public static GroupCreateResponse from(Group group) {
         return new GroupCreateResponse(
@@ -17,7 +18,7 @@ public record GroupCreateResponse(
                 group.getName(),
                 group.getDescription(),
                 group.getInviteCode(),
-                group.getCreatedAt()
+                KstTime.toOffset(group.getCreatedAt())
         );
     }
 }
