@@ -28,6 +28,7 @@ import com.app.backend.domain.user.entity.User;
 import com.app.backend.domain.user.repository.UserRepository;
 import com.app.backend.global.exception.CustomException;
 import com.app.backend.global.exception.ErrorCode;
+import com.app.backend.global.util.KstTime;
 import com.app.backend.global.util.NicknameOrder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -124,7 +125,7 @@ public class GroupService {
                     Optional<Cycle> inProgress =
                             cycleRepository.findByGroupIdAndStatus(group.getId(), CycleStatus.IN_PROGRESS);
                     CurrentCycleResponse currentCycle = inProgress
-                            .map(c -> new CurrentCycleResponse(c.getId(), c.getTopic(), c.getDeadlineAt()))
+                            .map(c -> new CurrentCycleResponse(c.getId(), c.getTopic(), KstTime.toOffset(c.getDeadlineAt())))
                             .orElse(null);
 
                     Optional<Shot> thumbnailShot = starterShot(latestCycle(group.getId()));

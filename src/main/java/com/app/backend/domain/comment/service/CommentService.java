@@ -20,12 +20,11 @@ import com.app.backend.domain.user.entity.User;
 import com.app.backend.domain.user.repository.UserRepository;
 import com.app.backend.global.exception.CustomException;
 import com.app.backend.global.exception.ErrorCode;
+import com.app.backend.global.util.KstTime;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -36,7 +35,6 @@ import java.util.stream.Collectors;
 @Service
 public class CommentService {
 
-    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
 
     private final CommentRepository commentRepository;
     private final ShotRepository shotRepository;
@@ -98,7 +96,7 @@ public class CommentService {
                 .orElse(null);
         return new CommentResponse(
                 comment.getId(), userId, nickname, profileImageUrl,
-                comment.getContent(), toKstOffset(comment.getCreatedAt()));
+                comment.getContent(), KstTime.toOffset(comment.getCreatedAt()));
     }
 
     @Transactional(readOnly = true)
@@ -134,8 +132,8 @@ public class CommentService {
                         c.isUnderReview() ? null : c.getContent(),
                         c.isUnderReview(),
                         reportedByMe.contains(c.getId()),
-                        toKstOffset(c.getCreatedAt()),
-                        toKstOffset(c.getUpdatedAt())))
+                        KstTime.toOffset(c.getCreatedAt()),
+                        KstTime.toOffset(c.getUpdatedAt())))
                 .toList();
         return new CommentListResponse(items);
     }
@@ -148,7 +146,7 @@ public class CommentService {
         }
         comment.updateContent(content, LocalDateTime.now());
         return new CommentUpdateResponse(
-                comment.getId(), comment.getContent(), toKstOffset(comment.getUpdatedAt()));
+                comment.getId(), comment.getContent(), KstTime.toOffset(comment.getUpdatedAt()));
     }
 
     @Transactional
@@ -162,13 +160,13 @@ public class CommentService {
 
     private Shot findValidShot(Long shotId) {
         return shotRepository.findById(shotId)
-                .filter(s -> s.getDeletedAt() == null && !s.isRemoved())
+                .filter(Shot::isVisible)
                 .orElseThrow(() -> new CustomException(ErrorCode.SHOT_NOT_FOUND));
     }
 
     private Comment findValidComment(Long commentId) {
         return commentRepository.findById(commentId)
-                .filter(c -> c.getDeletedAt() == null && !c.isRemoved())
+                .filter(Comment::isVisible)
                 .orElseThrow(() -> new CustomException(ErrorCode.COMMENT_NOT_FOUND));
     }
 
@@ -186,12 +184,8 @@ public class CommentService {
             return false;
         }
         boolean viewerUploaded = shotRepository.findByCycleIdAndUserId(cycle.getId(), userId)
-                .filter(s -> s.getDeletedAt() == null && !s.isRemoved())
+                .filter(Shot::isVisible)
                 .isPresent();
         return !viewerUploaded;
-    }
-
-    private OffsetDateTime toKstOffset(LocalDateTime ldt) {
-        return ldt == null ? null : ldt.atZone(SEOUL).toOffsetDateTime();
     }
 }

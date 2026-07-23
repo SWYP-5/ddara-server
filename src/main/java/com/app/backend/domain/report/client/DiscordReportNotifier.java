@@ -9,16 +9,14 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
+import com.app.backend.global.util.KstTime;
+
 import java.util.Map;
 
 @Component
 public class DiscordReportNotifier {
 
     private static final Logger log = LoggerFactory.getLogger(DiscordReportNotifier.class);
-    private static final DateTimeFormatter TIME_FORMAT =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final RestClient restClient;
     private final String webhookUrl;
@@ -45,7 +43,7 @@ public class DiscordReportNotifier {
                 + "사유: " + report.getReasonCode()
                 + (report.getReasonText() != null ? " (" + report.getReasonText() + ")" : "") + "\n"
                 + "신고자 id: " + report.getReporterId() + "\n"
-                + "시각: " + report.getCreatedAt().atZone(ZoneId.of("Asia/Seoul")).format(TIME_FORMAT);
+                + "시각: " + KstTime.format(report.getCreatedAt());
         try {
             restClient.post()
                     .uri(webhookUrl)

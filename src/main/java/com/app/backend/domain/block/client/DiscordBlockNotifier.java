@@ -7,18 +7,15 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
+import com.app.backend.global.util.KstTime;
+
 import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.Map;
 
 @Component
 public class DiscordBlockNotifier {
 
     private static final Logger log = LoggerFactory.getLogger(DiscordBlockNotifier.class);
-    private static final DateTimeFormatter TIME_FORMAT =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
 
     private final RestClient restClient;
     private final String webhookUrl;
@@ -41,7 +38,7 @@ public class DiscordBlockNotifier {
                 .append("차단자: ").append(blockerNickname).append(" (id ").append(blockerId).append(")\n")
                 .append("피차단자: ").append(blockedNickname).append(" (id ").append(blockedId).append(")\n")
                 .append("모임: ").append(groupName).append(" (id ").append(groupId).append(")\n")
-                .append("시각: ").append(blockedAt.atZone(SEOUL).format(TIME_FORMAT));
+                .append("시각: ").append(KstTime.format(blockedAt));
         if (recentImageUrl != null) {
             content.append("\n피차단자 최근 사진: ").append(recentImageUrl);
         }

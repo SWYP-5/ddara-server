@@ -17,11 +17,11 @@ import com.app.backend.domain.user.entity.User;
 import com.app.backend.domain.user.repository.UserRepository;
 import com.app.backend.global.exception.CustomException;
 import com.app.backend.global.exception.ErrorCode;
+import com.app.backend.global.util.KstTime;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -36,8 +36,6 @@ public class CycleService {
 
     private static final int MIN_MEMBERS_TO_START = 3;
     private static final int CYCLE_DURATION_HOURS = 24;
-    // 시각 필드는 KST 오프셋(+09:00)을 붙여 응답
-    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
 
     private final GroupRepository groupRepository;
     private final MembershipRepository membershipRepository;
@@ -166,7 +164,7 @@ public class CycleService {
                     cycle.getStarterUserId(),
                     shots.size(),
                     participants,
-                    cycle.getStartedAt().atZone(SEOUL).toOffsetDateTime()));
+                    KstTime.toOffset(cycle.getStartedAt())));
         }
 
         return new PastCyclesResponse(

@@ -18,11 +18,11 @@ import com.app.backend.domain.user.entity.User;
 import com.app.backend.domain.user.repository.UserRepository;
 import com.app.backend.global.exception.CustomException;
 import com.app.backend.global.exception.ErrorCode;
+import com.app.backend.global.util.KstTime;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -32,7 +32,6 @@ import java.util.stream.Collectors;
 @Service
 public class BlockService {
 
-    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
 
     private final BlockRepository blockRepository;
     private final UserRepository userRepository;
@@ -91,7 +90,7 @@ public class BlockService {
                 .map(Cycle::getId).toList();
         List<Shot> groupShots = cycleIds.isEmpty() ? List.of()
                 : shotRepository.findByCycleIdIn(cycleIds).stream()
-                .filter(s -> s.getDeletedAt() == null && !s.isRemoved())
+                .filter(Shot::isVisible)
                 .toList();
 
         String recentImageUrl = groupShots.stream()
@@ -136,7 +135,7 @@ public class BlockService {
                         block.getBlockedId(),
                         usersById.containsKey(block.getBlockedId())
                                 ? usersById.get(block.getBlockedId()).getName() : "탈퇴한사용자",
-                        block.getCreatedAt().atZone(SEOUL).toOffsetDateTime()))
+                        KstTime.toOffset(block.getCreatedAt())))
                 .toList();
         return new BlockListResponse(items);
     }

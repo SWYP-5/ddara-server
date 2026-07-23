@@ -2,7 +2,8 @@ package com.app.backend.domain.group.dto;
 
 import com.app.backend.domain.group.entity.Group;
 
-import java.time.LocalDateTime;
+import com.app.backend.global.util.KstTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 
 public record GroupDetailResponse(
@@ -17,7 +18,7 @@ public record GroupDetailResponse(
         boolean canStartCycle,
         int myCycleCount,
         int totalCycleCount,
-        LocalDateTime createdAt
+        OffsetDateTime createdAt
 ) {
     public static GroupDetailResponse of(Group group, List<MemberResponse> members,
                                          CurrentCycleDetailResponse currentCycle, boolean canStartCycle,
@@ -34,7 +35,7 @@ public record GroupDetailResponse(
                 canStartCycle,
                 myCycleCount,
                 totalCycleCount,
-                group.getCreatedAt()
+                KstTime.toOffset(group.getCreatedAt())
         );
     }
 }
