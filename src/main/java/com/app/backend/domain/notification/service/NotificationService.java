@@ -17,6 +17,7 @@ import com.app.backend.domain.user.entity.User;
 import com.app.backend.domain.user.repository.UserRepository;
 import com.app.backend.global.exception.CustomException;
 import com.app.backend.global.exception.ErrorCode;
+import com.app.backend.global.util.KstTime;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -25,8 +26,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
-import java.time.ZoneId;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
@@ -48,8 +47,6 @@ public class NotificationService {
     private static final Collection<NotificationType> STARTER_IMAGE_TYPES = EnumSet.of(
             NotificationType.NEW_CYCLE, NotificationType.CYCLE_COMPLETED);
 
-    // 시각은 KST 오프셋(+09:00)을 붙여 내보낸다 (프론트가 UTC로 오해해 9시간 어긋나는 것 방지)
-    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
 
     private final NotificationRepository notificationRepository;
     private final ObjectMapper objectMapper;
@@ -86,7 +83,7 @@ public class NotificationService {
         payload.put("groupId", groupId);
         payload.put("groupName", groupName);
         payload.put("cycleId", cycleId);
-        payload.put("deadlineAt", deadlineAt.atZone(SEOUL).toOffsetDateTime().toString());   // 마감시각
+        payload.put("deadlineAt", KstTime.toOffset(deadlineAt).toString());   // 마감시각
         payload.put("imageUrl", starterShotImageUrl(cycleId));   // 개인 관련 → 스타터 원본 가이드샷
         notifyEach(excludeBlockers(activeMemberIds(groupId), starterUserId),
                 NotificationType.NEW_CYCLE, payload);
@@ -137,7 +134,7 @@ public class NotificationService {
         payload.put("groupName", groupName);
         payload.put("cycleId", cycleId);
         payload.put("remainingMinutes", remainingMinutes);
-        payload.put("deadlineAt", deadlineAt.atZone(SEOUL).toOffsetDateTime().toString());
+        payload.put("deadlineAt", KstTime.toOffset(deadlineAt).toString());
         payload.put("imageUrl", null);   // 모임 관련 → 기본 아이콘 표시용 null
         notifyEach(recipients, NotificationType.DEADLINE, payload);
     }
@@ -333,8 +330,8 @@ public class NotificationService {
                 n.getId(),                       // 알림 id
                 n.getType().name(),              // enum → 문자열 (예: "MEMBER_JOIN")
                 payload,                         // 위에서 파싱한 payload 객체
-                toKstOffset(n.getReadAt()),      // 읽은 시각 → +09:00 붙여서
-                toKstOffset(n.getCreatedAt()));  // 생성 시각 → +09:00 붙여서
+                KstTime.toOffset(n.getReadAt()),      // 읽은 시각 → +09:00
+                KstTime.toOffset(n.getCreatedAt()));  // 생성 시각 → +09:00
     }
 
     // 저장된 imageUrl은 생성 시점 값이라 조회 시점 상태(검토중/삭제)로 덮어쓴다. starterUserId는 클라 차단 마스킹용
@@ -350,8 +347,4 @@ public class NotificationService {
         payload.put("starterUserId", shot != null ? shot.getUserId() : null);
     }
 
-    /** LocalDateTime(KST 벽시계)을 KST 오프셋(+09:00)이 붙은 OffsetDateTime으로 변환. null 허용. */
-    private OffsetDateTime toKstOffset(LocalDateTime ldt) {
-        return ldt == null ? null : ldt.atZone(SEOUL).toOffsetDateTime();
-    }
 }

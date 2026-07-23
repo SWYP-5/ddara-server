@@ -20,12 +20,11 @@ import com.app.backend.domain.user.entity.User;
 import com.app.backend.domain.user.repository.UserRepository;
 import com.app.backend.global.exception.CustomException;
 import com.app.backend.global.exception.ErrorCode;
+import com.app.backend.global.util.KstTime;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
-import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -37,7 +36,6 @@ import java.util.stream.Collectors;
 @Service
 public class FeedService {
 
-    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
     private static final int LATEST_COMMENT_LIMIT = 5;
 
     private final MembershipRepository membershipRepository;
@@ -89,7 +87,7 @@ public class FeedService {
         }
 
         List<Shot> allShots = shotRepository.findByCycleIdIn(List.copyOf(cyclesById.keySet())).stream()
-                .filter(s -> s.getDeletedAt() == null && !s.isRemoved())
+                .filter(Shot::isVisible)
                 .toList();
 
         Set<Long> myUploadedCycleIds = allShots.stream()
@@ -167,7 +165,7 @@ public class FeedService {
                             locked,
                             comments.size(),
                             latestComments,
-                            toKstOffset(shot.getUploadedAt()));
+                            KstTime.toOffset(shot.getUploadedAt()));
                 })
                 .toList();
 
@@ -181,7 +179,4 @@ public class FeedService {
                         .orElse("탈퇴한사용자"));
     }
 
-    private OffsetDateTime toKstOffset(LocalDateTime ldt) {
-        return ldt == null ? null : ldt.atZone(SEOUL).toOffsetDateTime();
-    }
 }

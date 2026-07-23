@@ -82,4 +82,9 @@ public class Shot {
     public boolean isRemoved() {
         return reviewStatus == ReviewStatus.REMOVED;
     }
+
+    // 삭제되지 않고 운영 판정으로 제거되지도 않은 노출 가능 상태
+    public boolean isVisible() {
+        return deletedAt == null && !isRemoved();
+    }
 }

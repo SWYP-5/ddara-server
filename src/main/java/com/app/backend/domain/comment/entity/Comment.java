@@ -76,4 +76,9 @@ public class Comment {
     public boolean isRemoved() {
         return reviewStatus == ReviewStatus.REMOVED;
     }
+
+    //삭제/제거되지 않은 상태
+    public boolean isVisible() {
+        return deletedAt == null && !isRemoved();
+    }
 }

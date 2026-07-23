@@ -92,7 +92,7 @@ public class ReportService {
 
     private void reportShot(Long userId, ReportRequest request) {
         Shot shot = shotRepository.findById(request.targetId())
-                .filter(s -> s.getDeletedAt() == null && !s.isRemoved())
+                .filter(Shot::isVisible)
                 .orElseThrow(() -> new CustomException(ErrorCode.SHOT_NOT_FOUND));
 
         if (shot.getUserId().equals(userId)) {
@@ -112,7 +112,7 @@ public class ReportService {
 
     private void reportComment(Long userId, ReportRequest request) {
         Comment comment = commentRepository.findById(request.targetId())
-                .filter(c -> c.getDeletedAt() == null && !c.isRemoved())
+                .filter(Comment::isVisible)
                 .orElseThrow(() -> new CustomException(ErrorCode.COMMENT_NOT_FOUND));
 
         if (comment.getUserId().equals(userId)) {
