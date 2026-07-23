@@ -10,6 +10,7 @@ public record BlockListResponse(
     public record BlockedUser(
             Long userId,
             String name,
+            String blockedNickname,
             OffsetDateTime blockedAt
     ) {
     }

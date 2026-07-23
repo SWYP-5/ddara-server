@@ -32,13 +32,17 @@ public class Block {
     @Column(name = "blocked_id", nullable = false)
     private Long blockedId;
 
+    @Column(name = "blocked_nickname", length = 10)
+    private String blockedNickname;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
     @Builder
-    private Block(Long blockerId, Long blockedId) {
+    private Block(Long blockerId, Long blockedId, String blockedNickname) {
         this.blockerId = blockerId;
         this.blockedId = blockedId;
+        this.blockedNickname = blockedNickname;
     }
 }

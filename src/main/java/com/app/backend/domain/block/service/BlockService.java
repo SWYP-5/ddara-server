@@ -72,9 +72,13 @@ public class BlockService {
         if (blockRepository.existsByBlockerIdAndBlockedId(userId, targetUserId)) {
             return;
         }
+        String blockedNickname = membershipRepository.findByGroupIdAndUserId(groupId, targetUserId)
+                .map(Membership::getNickname)
+                .orElse(null);
         Block block = blockRepository.save(Block.builder()
                 .blockerId(userId)
                 .blockedId(targetUserId)
+                .blockedNickname(blockedNickname)
                 .build());
 
         notifyBlock(userId, targetUserId, groupId, block.getCreatedAt());
@@ -135,6 +139,7 @@ public class BlockService {
                         block.getBlockedId(),
                         usersById.containsKey(block.getBlockedId())
                                 ? usersById.get(block.getBlockedId()).getName() : "탈퇴한사용자",
+                        block.getBlockedNickname(),
                         KstTime.toOffset(block.getCreatedAt())))
                 .toList();
         return new BlockListResponse(items);
