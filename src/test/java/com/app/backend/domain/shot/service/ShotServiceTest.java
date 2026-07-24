@@ -6,6 +6,7 @@ import com.app.backend.domain.cycle.repository.CycleRepository;
 import com.app.backend.domain.group.entity.Group;
 import com.app.backend.domain.group.repository.GroupRepository;
 import com.app.backend.domain.group.repository.MembershipRepository;
+import com.app.backend.domain.group.service.NextStarterAssigner;
 import com.app.backend.domain.notification.service.NotificationService;
 import com.app.backend.domain.shot.dto.ShotUploadRequest;
 import com.app.backend.domain.shot.entity.ReviewStatus;
@@ -43,13 +44,16 @@ class ShotServiceTest {
     @Mock
     private NotificationService notificationService;
 
+    @Mock
+    private NextStarterAssigner nextStarterAssigner;
+
     private ShotService shotService;
 
     @BeforeEach
     void setUp() {
         shotService = new ShotService(
                 cycleRepository, groupRepository, membershipRepository,
-                shotRepository, userRepository, notificationService);
+                shotRepository, userRepository, notificationService, nextStarterAssigner);
     }
 
     // 그룹 7, 회차 55(진행 중, 스타터=99). 업로더는 멤버 1.

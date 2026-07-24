@@ -7,6 +7,7 @@ import com.app.backend.domain.group.entity.Group;
 import com.app.backend.domain.group.entity.Membership;
 import com.app.backend.domain.group.repository.GroupRepository;
 import com.app.backend.domain.group.repository.MembershipRepository;
+import com.app.backend.domain.group.service.NextStarterAssigner;
 import com.app.backend.domain.notification.service.NotificationService;
 import com.app.backend.domain.shot.dto.ShotListResponse;
 import com.app.backend.domain.shot.dto.ShotResponse;
@@ -40,19 +41,22 @@ public class ShotService {
     private final ShotRepository shotRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final NextStarterAssigner nextStarterAssigner;
 
     public ShotService(CycleRepository cycleRepository,
                        GroupRepository groupRepository,
                        MembershipRepository membershipRepository,
                        ShotRepository shotRepository,
                        UserRepository userRepository,
-                       NotificationService notificationService) {
+                       NotificationService notificationService,
+                       NextStarterAssigner nextStarterAssigner) {
         this.cycleRepository = cycleRepository;
         this.groupRepository = groupRepository;
         this.membershipRepository = membershipRepository;
         this.shotRepository = shotRepository;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
+        this.nextStarterAssigner = nextStarterAssigner;
     }
 
     @Transactional
@@ -106,6 +110,7 @@ public class ShotService {
             String groupName = groupRepository.findById(cycle.getGroupId())
                     .map(Group::getName).orElse("모임");
             notificationService.createCycleCompleted(cycle.getGroupId(), groupName, cycle.getId());
+            nextStarterAssigner.assignAfterCycleClosed(cycle.getGroupId(), cycle.getStarterUserId());
         }
 
         return ShotResponse.from(shot);

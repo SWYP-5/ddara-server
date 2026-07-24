@@ -15,13 +15,18 @@ public record GroupDetailResponse(
         int memberCount,
         List<MemberResponse> members,
         CurrentCycleDetailResponse currentCycle,
+        NextStarterResponse nextStarter,
         boolean canStartCycle,
         int myCycleCount,
         int totalCycleCount,
         OffsetDateTime createdAt
 ) {
+    public record NextStarterResponse(Long userId, String nickname) {
+    }
+
     public static GroupDetailResponse of(Group group, List<MemberResponse> members,
-                                         CurrentCycleDetailResponse currentCycle, boolean canStartCycle,
+                                         CurrentCycleDetailResponse currentCycle,
+                                         NextStarterResponse nextStarter, boolean canStartCycle,
                                          int myCycleCount, int totalCycleCount) {
         return new GroupDetailResponse(
                 group.getId(),
@@ -32,6 +37,7 @@ public record GroupDetailResponse(
                 members.size(),
                 members,
                 currentCycle,
+                nextStarter,
                 canStartCycle,
                 myCycleCount,
                 totalCycleCount,

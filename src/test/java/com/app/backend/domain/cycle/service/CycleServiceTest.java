@@ -7,6 +7,7 @@ import com.app.backend.domain.cycle.repository.CycleRepository;
 import com.app.backend.domain.group.entity.Group;
 import com.app.backend.domain.group.repository.GroupRepository;
 import com.app.backend.domain.group.repository.MembershipRepository;
+import com.app.backend.domain.group.service.NextStarterAssigner;
 import com.app.backend.domain.notification.service.NotificationService;
 import com.app.backend.domain.shot.repository.ShotRepository;
 import com.app.backend.domain.user.repository.UserRepository;
@@ -47,13 +48,16 @@ class CycleServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private NextStarterAssigner nextStarterAssigner;
+
     private CycleService cycleService;
 
     @BeforeEach
     void setUp() {
         cycleService = new CycleService(
                 groupRepository, membershipRepository, cycleRepository,
-                shotRepository, notificationService, userRepository);
+                shotRepository, notificationService, userRepository, nextStarterAssigner);
     }
 
     private Group group(String name) {
