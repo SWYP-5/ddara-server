@@ -39,7 +39,8 @@ public class NotificationService {
 
     // category → 포함할 type 집합
     private static final Collection<NotificationType> ACTIVITY_TYPES = EnumSet.of(
-            NotificationType.NEW_CYCLE, NotificationType.CYCLE_COMPLETED, NotificationType.DEADLINE);
+            NotificationType.NEW_CYCLE, NotificationType.CYCLE_COMPLETED, NotificationType.DEADLINE,
+            NotificationType.STARTER_ASSIGNED);
     private static final Collection<NotificationType> ETC_TYPES = EnumSet.of(
             NotificationType.MEMBER_JOIN);
 
@@ -98,6 +99,16 @@ public class NotificationService {
         payload.put("cycleId", cycleId);
         payload.put("imageUrl", starterShotImageUrl(cycleId));   // 개인 관련 → 스타터 원본 가이드샷
         notifyEach(activeMemberIds(groupId), NotificationType.CYCLE_COMPLETED, payload);
+    }
+
+    /** 다음 스타터 지정 → 모임 멤버 전원. */
+    @Transactional
+    public void createStarterAssigned(Long groupId, String groupName) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("groupId", groupId);
+        payload.put("groupName", groupName);
+        payload.put("imageUrl", null);
+        notifyEach(activeMemberIds(groupId), NotificationType.STARTER_ASSIGNED, payload);
     }
 
     /** 모임 합류 → 합류자 본인 제외 멤버 전원. */
@@ -204,6 +215,7 @@ public class NotificationService {
             case CYCLE_COMPLETED -> "따라찍기 완료";
             case MEMBER_JOIN -> "모임 참여";
             case DEADLINE -> "마감 임박";
+            case STARTER_ASSIGNED -> "랜덤 스타터";
             default -> "따라 알림";   // 2차 타입 대비
         };
     }
@@ -212,6 +224,7 @@ public class NotificationService {
     private String pushBody(NotificationType type, Map<String, Object> payload) {
         String groupName = String.valueOf(payload.getOrDefault("groupName", "모임"));
         return switch (type) {
+            case STARTER_ASSIGNED -> "'" + groupName + "'모임의 다음 스타터가 뽑혔어요. 누구일까요?";
             case NEW_CYCLE -> "'" + groupName + "'에서 새 따라찍기가 시작됐어요!";
             case CYCLE_COMPLETED -> "'" + groupName + "'에서 따라찍기가 완료되었어요!";
             case MEMBER_JOIN -> payload.getOrDefault("actorNickname", "친구") + "님이 '" + groupName + "' 모임에 합류했어요";
@@ -243,7 +256,7 @@ public class NotificationService {
             return false;   // 마스터 off → 아무 알림도 생성 안 함
         }
         return switch (type) {
-            case NEW_CYCLE, CYCLE_COMPLETED -> prefs.activity().followShot();
+            case NEW_CYCLE, CYCLE_COMPLETED, STARTER_ASSIGNED -> prefs.activity().followShot();
             case DEADLINE -> prefs.activity().deadlineVote();
             case MEMBER_JOIN -> prefs.etc().memberJoin();
             default -> true;   // 2차 타입은 별도 토글 없음(현재 미발송)
@@ -307,7 +320,7 @@ public class NotificationService {
     // category 문자열 → 조회할 알림 type 집합
     private Collection<NotificationType> resolveTypes(String category) {
         if ("activity".equalsIgnoreCase(category)) {
-            return ACTIVITY_TYPES;   // 활동: NEW_CYCLE·CYCLE_COMPLETED·DEADLINE
+            return ACTIVITY_TYPES;
         }
         if ("etc".equalsIgnoreCase(category)) {
             return ETC_TYPES;        // 기타: MEMBER_JOIN
