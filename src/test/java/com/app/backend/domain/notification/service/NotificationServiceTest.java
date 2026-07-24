@@ -158,7 +158,8 @@ class NotificationServiceTest {
                 .containsExactlyInAnyOrder(
                         NotificationType.NEW_CYCLE,
                         NotificationType.CYCLE_COMPLETED,
-                        NotificationType.DEADLINE)
+                        NotificationType.DEADLINE,
+                        NotificationType.STARTER_ASSIGNED)
                 .doesNotContain(NotificationType.MEMBER_JOIN);
     }
 
@@ -260,6 +261,30 @@ class NotificationServiceTest {
                 .containsExactlyInAnyOrder(1L, 2L);
         assertThat(notificationCaptor.getAllValues())
                 .allMatch(n -> n.getType() == NotificationType.NEW_CYCLE);
+    }
+
+    @Test
+    void 스타터지정_알림은_멤버_전원에게_생성되고_스타터를_노출하지_않는다() {
+        // given: 모임 7에 멤버 1,2,3 (3번이 지정된 스타터)
+        given(membershipRepository.findByGroupIdAndLeftAtIsNull(7L))
+                .willReturn(List.of(member(7L, 1L), member(7L, 2L), member(7L, 3L)));
+        given(userRepository.findById(1L)).willReturn(Optional.of(userWithPrefs(null)));
+        given(userRepository.findById(2L)).willReturn(Optional.of(userWithPrefs(null)));
+        given(userRepository.findById(3L)).willReturn(Optional.of(userWithPrefs(null)));
+
+        // when
+        notificationService.createStarterAssigned(7L, "마라탕 모임");
+
+        // then: 지정된 스타터 본인 포함 3명 전원에게 생성
+        verify(notificationRepository, org.mockito.Mockito.times(3)).save(notificationCaptor.capture());
+        assertThat(notificationCaptor.getAllValues())
+                .extracting(Notification::getUserId)
+                .containsExactlyInAnyOrder(1L, 2L, 3L);
+        assertThat(notificationCaptor.getAllValues())
+                .allMatch(n -> n.getType() == NotificationType.STARTER_ASSIGNED);
+        assertThat(notificationCaptor.getAllValues().get(0).getPayload())
+                .contains("\"imageUrl\":null")
+                .doesNotContain("starterUserId", "nickname");
     }
 
     @Test
