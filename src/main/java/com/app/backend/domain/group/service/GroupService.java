@@ -58,6 +58,7 @@ public class GroupService {
     private final InviteCodeGenerator inviteCodeGenerator;
     private final NotificationService notificationService;
     private final UploadService uploadService;
+    private final NextStarterAssigner nextStarterAssigner;
 
     public GroupService(GroupRepository groupRepository,
                         MembershipRepository membershipRepository,
@@ -66,7 +67,8 @@ public class GroupService {
                         ShotRepository shotRepository,
                         InviteCodeGenerator inviteCodeGenerator,
                         NotificationService notificationService,
-                        UploadService uploadService) {
+                        UploadService uploadService,
+                        NextStarterAssigner nextStarterAssigner) {
         this.groupRepository = groupRepository;
         this.membershipRepository = membershipRepository;
         this.userRepository = userRepository;
@@ -75,6 +77,7 @@ public class GroupService {
         this.inviteCodeGenerator = inviteCodeGenerator;
         this.notificationService = notificationService;
         this.uploadService = uploadService;
+        this.nextStarterAssigner = nextStarterAssigner;
     }
 
     @Transactional
@@ -229,7 +232,17 @@ public class GroupService {
         }
         int totalCycleCount = doneCycles.size();
 
-        return GroupDetailResponse.of(group, memberResponses, currentCycle, canStartCycle,
+        // 다음 지정 스타터
+        GroupDetailResponse.NextStarterResponse nextStarter = Optional
+                .ofNullable(group.getNextStarterUserId())
+                .map(starterId -> new GroupDetailResponse.NextStarterResponse(
+                        starterId,
+                        membershipRepository.findByGroupIdAndUserId(groupId, starterId)
+                                .map(Membership::getNickname)
+                                .orElse(null)))
+                .orElse(null);
+
+        return GroupDetailResponse.of(group, memberResponses, currentCycle, nextStarter, canStartCycle,
                 myCycleCount, totalCycleCount);
     }
 
@@ -245,6 +258,7 @@ public class GroupService {
 
         LocalDateTime now = LocalDateTime.now();
         membership.leave(now);
+        nextStarterAssigner.reassignIfLeft(groupId, userId);
         softDeleteGroupIfEmpty(groupId, now);
     }
 

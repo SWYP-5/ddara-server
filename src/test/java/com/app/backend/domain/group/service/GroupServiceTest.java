@@ -6,6 +6,7 @@ import com.app.backend.domain.group.entity.Membership;
 import com.app.backend.domain.group.entity.MembershipRole;
 import com.app.backend.domain.group.repository.GroupRepository;
 import com.app.backend.domain.group.repository.MembershipRepository;
+import com.app.backend.domain.group.service.NextStarterAssigner;
 import com.app.backend.domain.notification.service.NotificationService;
 import com.app.backend.domain.shot.repository.ShotRepository;
 import com.app.backend.domain.upload.service.UploadService;
@@ -51,6 +52,9 @@ class GroupServiceTest {
     @Mock
     private UploadService uploadService;
 
+    @Mock
+    private NextStarterAssigner nextStarterAssigner;
+
     private GroupService groupService;
 
     @BeforeEach
@@ -58,7 +62,7 @@ class GroupServiceTest {
         groupService = new GroupService(
                 groupRepository, membershipRepository, userRepository,
                 cycleRepository, shotRepository, inviteCodeGenerator, notificationService,
-                uploadService);
+                uploadService, nextStarterAssigner);
     }
 
     @Test

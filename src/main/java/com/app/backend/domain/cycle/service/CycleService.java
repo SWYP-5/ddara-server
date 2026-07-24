@@ -9,6 +9,7 @@ import com.app.backend.domain.cycle.repository.CycleRepository;
 import com.app.backend.domain.group.entity.Group;
 import com.app.backend.domain.group.repository.GroupRepository;
 import com.app.backend.domain.group.repository.MembershipRepository;
+import com.app.backend.domain.group.service.NextStarterAssigner;
 import com.app.backend.domain.notification.service.NotificationService;
 import com.app.backend.domain.shot.entity.Shot;
 import com.app.backend.domain.shot.entity.ShotType;
@@ -43,19 +44,22 @@ public class CycleService {
     private final ShotRepository shotRepository;
     private final NotificationService notificationService;
     private final UserRepository userRepository;
+    private final NextStarterAssigner nextStarterAssigner;
 
     public CycleService(GroupRepository groupRepository,
                         MembershipRepository membershipRepository,
                         CycleRepository cycleRepository,
                         ShotRepository shotRepository,
                         NotificationService notificationService,
-                        UserRepository userRepository) {
+                        UserRepository userRepository,
+                        NextStarterAssigner nextStarterAssigner) {
         this.groupRepository = groupRepository;
         this.membershipRepository = membershipRepository;
         this.cycleRepository = cycleRepository;
         this.shotRepository = shotRepository;
         this.notificationService = notificationService;
         this.userRepository = userRepository;
+        this.nextStarterAssigner = nextStarterAssigner;
     }
 
     @Transactional
@@ -91,6 +95,8 @@ public class CycleService {
                 .type(ShotType.STARTER)
                 .imageUrl(request.imageUrl())
                 .build());
+
+        group.clearNextStarter();
 
         notificationService.createNewCycle(groupId, group.getName(), cycle.getId(), userId, cycle.getDeadlineAt());
 
@@ -181,6 +187,7 @@ public class CycleService {
             // 회차 마감 → 모임 멤버 전원에게 인앱 알림 + FCM 푸시 (#77)
             notificationService.createCycleCompleted(
                     cycle.getGroupId(), groupName(cycle.getGroupId()), cycle.getId());
+            nextStarterAssigner.assignAfterCycleClosed(cycle.getGroupId(), cycle.getStarterUserId());
         }
         return overdue.size();
     }
