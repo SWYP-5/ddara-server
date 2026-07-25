@@ -40,7 +40,7 @@ public class NotificationService {
     // category → 포함할 type 집합
     private static final Collection<NotificationType> ACTIVITY_TYPES = EnumSet.of(
             NotificationType.NEW_CYCLE, NotificationType.CYCLE_COMPLETED, NotificationType.DEADLINE,
-            NotificationType.STARTER_ASSIGNED);
+            NotificationType.STARTER_ASSIGNED, NotificationType.FRIEND_SHOT, NotificationType.COMMENT);
     private static final Collection<NotificationType> ETC_TYPES = EnumSet.of(
             NotificationType.MEMBER_JOIN);
 
@@ -109,6 +109,40 @@ public class NotificationService {
         payload.put("groupName", groupName);
         payload.put("imageUrl", null);
         notifyEach(activeMemberIds(groupId), NotificationType.STARTER_ASSIGNED, payload);
+    }
+
+    /** 멤버 인증샷 업로드 → 올린 사람 제외 멤버 전원 */
+    @Transactional
+    public void createFriendShot(Long groupId, String groupName, String actorNickname,
+                                 Long uploaderUserId, Long cycleId) {
+        List<Long> recipients = excludeBlockers(activeMemberIds(groupId), uploaderUserId).stream()
+                .filter(id -> !id.equals(uploaderUserId))
+                .toList();
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("groupId", groupId);
+        payload.put("groupName", groupName);
+        payload.put("actorNickname", actorNickname);
+        payload.put("cycleId", cycleId);
+        payload.put("imageUrl", null);
+        notifyEach(recipients, NotificationType.FRIEND_SHOT, payload);
+    }
+
+    /** 코멘트 작성 → 사진 올리 사람 */
+    @Transactional
+    public void createComment(Long groupId, String groupName, String actorNickname,
+                              Long shotId, Long shotOwnerUserId, Long commenterUserId, Long cycleId) {
+        if (shotOwnerUserId.equals(commenterUserId)) {
+            return;
+        }
+        List<Long> recipients = excludeBlockers(List.of(shotOwnerUserId), commenterUserId);
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("groupId", groupId);
+        payload.put("groupName", groupName);
+        payload.put("actorNickname", actorNickname);
+        payload.put("cycleId", cycleId);
+        payload.put("shotId", shotId);
+        payload.put("imageUrl", null);
+        notifyEach(recipients, NotificationType.COMMENT, payload);
     }
 
     /** 모임 합류 → 합류자 본인 제외 멤버 전원. */
@@ -216,6 +250,8 @@ public class NotificationService {
             case MEMBER_JOIN -> "모임 참여";
             case DEADLINE -> "마감 임박";
             case STARTER_ASSIGNED -> "랜덤 스타터";
+            case FRIEND_SHOT -> "다른 친구의 따라찍기";
+            case COMMENT -> "댓글";
             default -> "따라 알림";   // 2차 타입 대비
         };
     }
@@ -228,6 +264,8 @@ public class NotificationService {
             case NEW_CYCLE -> "'" + groupName + "'에서 새 따라찍기가 시작됐어요!";
             case CYCLE_COMPLETED -> "'" + groupName + "'에서 따라찍기가 완료되었어요!";
             case MEMBER_JOIN -> payload.getOrDefault("actorNickname", "친구") + "님이 '" + groupName + "' 모임에 합류했어요";
+            case FRIEND_SHOT -> "'" + groupName + "'에서 " + payload.getOrDefault("actorNickname", "친구") + "님이 따라찍기를 올렸어요";
+            case COMMENT -> "'" + groupName + "'에서 " + payload.getOrDefault("actorNickname", "친구") + "님이 내 사진에 댓글을 남겼어요";
             case DEADLINE -> {
                 int remaining = ((Number) payload.getOrDefault("remainingMinutes", 60)).intValue();
                 String left = remaining >= 60 ? (remaining / 60) + "시간" : remaining + "분";
@@ -258,6 +296,8 @@ public class NotificationService {
         return switch (type) {
             case NEW_CYCLE, CYCLE_COMPLETED, DEADLINE -> prefs.activity().followShot();
             case STARTER_ASSIGNED -> prefs.activity().starterAssigned();
+            case FRIEND_SHOT -> prefs.activity().friendShot();
+            case COMMENT -> prefs.activity().comment();
             case MEMBER_JOIN -> prefs.etc().memberJoin();
             default -> true;
         };

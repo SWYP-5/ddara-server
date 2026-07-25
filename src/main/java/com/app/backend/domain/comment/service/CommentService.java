@@ -8,8 +8,11 @@ import com.app.backend.domain.comment.repository.CommentRepository;
 import com.app.backend.domain.cycle.entity.Cycle;
 import com.app.backend.domain.cycle.entity.CycleStatus;
 import com.app.backend.domain.cycle.repository.CycleRepository;
+import com.app.backend.domain.group.entity.Group;
 import com.app.backend.domain.group.entity.Membership;
+import com.app.backend.domain.group.repository.GroupRepository;
 import com.app.backend.domain.group.repository.MembershipRepository;
+import com.app.backend.domain.notification.service.NotificationService;
 import com.app.backend.domain.report.entity.Report;
 import com.app.backend.domain.report.entity.ReportTargetType;
 import com.app.backend.domain.report.repository.ReportRepository;
@@ -42,19 +45,25 @@ public class CommentService {
     private final MembershipRepository membershipRepository;
     private final UserRepository userRepository;
     private final ReportRepository reportRepository;
+    private final GroupRepository groupRepository;
+    private final NotificationService notificationService;
 
     public CommentService(CommentRepository commentRepository,
                           ShotRepository shotRepository,
                           CycleRepository cycleRepository,
                           MembershipRepository membershipRepository,
                           UserRepository userRepository,
-                          ReportRepository reportRepository) {
+                          ReportRepository reportRepository,
+                          GroupRepository groupRepository,
+                          NotificationService notificationService) {
         this.commentRepository = commentRepository;
         this.shotRepository = shotRepository;
         this.cycleRepository = cycleRepository;
         this.membershipRepository = membershipRepository;
         this.userRepository = userRepository;
         this.reportRepository = reportRepository;
+        this.groupRepository = groupRepository;
+        this.notificationService = notificationService;
     }
 
     // 요청자가 신고한 코멘트 id 집합
@@ -91,6 +100,14 @@ public class CommentService {
         String nickname = membershipRepository.findByGroupIdAndUserId(cycle.getGroupId(), userId)
                 .map(Membership::getNickname)
                 .orElse(null);
+
+        // 사진 올린사람에게 코멘트 알림
+        String groupName = groupRepository.findById(cycle.getGroupId())
+                .map(Group::getName).orElse("모임");
+        notificationService.createComment(cycle.getGroupId(), groupName,
+                nickname != null ? nickname : "친구",
+                shotId, shot.getUserId(), userId, cycle.getId());
+
         String profileImageUrl = userRepository.findById(userId)
                 .map(User::getProfileImageUrl)
                 .orElse(null);

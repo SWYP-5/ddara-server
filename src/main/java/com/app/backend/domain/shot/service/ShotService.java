@@ -29,6 +29,7 @@ import java.time.OffsetDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -81,7 +82,9 @@ public class ShotService {
                 });
 
         // 사진이 있으면 교체, 없으면 생성
-        Shot shot = shotRepository.findByCycleIdAndUserId(cycleId, userId)
+        Optional<Shot> existingShot = shotRepository.findByCycleIdAndUserId(cycleId, userId);
+        boolean isNewUpload = existingShot.isEmpty();
+        Shot shot = existingShot
                 .map(existing -> {
                     if (existing.isUnderReview()) {
                         throw new CustomException(ErrorCode.SHOT_UNDER_REVIEW);
@@ -99,6 +102,17 @@ public class ShotService {
                         .imageUrl(request.imageUrl())
                         .build()));
 
+        String groupName = groupRepository.findById(cycle.getGroupId())
+                .map(Group::getName).orElse("모임");
+
+        if (isNewUpload) {
+            String uploaderNickname = membershipRepository
+                    .findByGroupIdAndUserId(cycle.getGroupId(), userId)
+                    .map(Membership::getNickname).orElse("친구");
+            notificationService.createFriendShot(
+                    cycle.getGroupId(), groupName, uploaderNickname, userId, cycleId);
+        }
+
         // 전원 업로드 시 자동 마감 (24h 자동마감과 함께 마감되는 2가지 경우 중 하나)
         // 검토중 사진은 업로드로 포함, 운영 삭제 사진은 제외
         long activeMembers = membershipRepository.countByGroupIdAndLeftAtIsNull(cycle.getGroupId());
@@ -107,8 +121,6 @@ public class ShotService {
         if (shotCount >= activeMembers) {
             cycle.complete();
             // 조기 마감도 24h 자동마감과 동일하게 모임 멤버 전원에게 마감 알림 발송 (#85)
-            String groupName = groupRepository.findById(cycle.getGroupId())
-                    .map(Group::getName).orElse("모임");
             notificationService.createCycleCompleted(cycle.getGroupId(), groupName, cycle.getId());
             nextStarterAssigner.assignAfterCycleClosed(cycle.getGroupId(), cycle.getStarterUserId());
         }
