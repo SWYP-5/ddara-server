@@ -43,6 +43,9 @@ public class Group {
     @Column(name = "next_starter_user_id")
     private Long nextStarterUserId;
 
+    @Column(name = "next_starter_assigned_at")
+    private LocalDateTime nextStarterAssignedAt;
+
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
@@ -56,10 +59,12 @@ public class Group {
 
     public void assignNextStarter(Long userId) {
         this.nextStarterUserId = userId;
+        this.nextStarterAssignedAt = LocalDateTime.now();
     }
 
     public void clearNextStarter() {
         this.nextStarterUserId = null;
+        this.nextStarterAssignedAt = null;
     }
 
     // 전원 나가기 시 소프트 삭제 (5일 후 스케줄러가 완전 삭제)

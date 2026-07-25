@@ -42,6 +42,9 @@ public class Membership {
     @Column(name = "left_at")
     private LocalDateTime leftAt;
 
+    @Column(name = "starter_seen_at")
+    private LocalDateTime starterSeenAt;
+
     @Builder
     private Membership(Long groupId, Long userId, String nickname, MembershipRole role, LocalDateTime joinedAt) {
         this.groupId = groupId;
@@ -70,5 +73,10 @@ public class Membership {
     // 모임 내 닉네임 변경
     public void updateNickname(String nickname) {
         this.nickname = nickname;
+    }
+
+    // 룰렛 열람 기록
+    public void markStarterSeen(LocalDateTime seenAt) {
+        this.starterSeenAt = seenAt;
     }
 }
