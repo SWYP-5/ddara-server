@@ -233,17 +233,36 @@ public class GroupService {
         int totalCycleCount = doneCycles.size();
 
         // 다음 지정 스타터
+        LocalDateTime myStarterSeenAt = members.stream()
+                .filter(m -> m.getUserId().equals(userId))
+                .findFirst()
+                .map(Membership::getStarterSeenAt)
+                .orElse(null);
         GroupDetailResponse.NextStarterResponse nextStarter = Optional
                 .ofNullable(group.getNextStarterUserId())
                 .map(starterId -> new GroupDetailResponse.NextStarterResponse(
                         starterId,
                         membershipRepository.findByGroupIdAndUserId(groupId, starterId)
                                 .map(Membership::getNickname)
-                                .orElse(null)))
+                                .orElse(null),
+                        KstTime.toOffset(group.getNextStarterAssignedAt()),
+                        myStarterSeenAt != null && group.getNextStarterAssignedAt() != null
+                                && myStarterSeenAt.isAfter(group.getNextStarterAssignedAt())))
                 .orElse(null);
 
         return GroupDetailResponse.of(group, memberResponses, currentCycle, nextStarter, canStartCycle,
                 myCycleCount, totalCycleCount);
+    }
+
+    @Transactional
+    public void markNextStarterSeen(Long userId, Long groupId) {
+        if (!groupRepository.existsById(groupId)) {
+            throw new CustomException(ErrorCode.GROUP_NOT_FOUND);
+        }
+        Membership membership = membershipRepository.findByGroupIdAndUserId(groupId, userId)
+                .filter(Membership::isActive)
+                .orElseThrow(() -> new CustomException(ErrorCode.NOT_GROUP_MEMBER));
+        membership.markStarterSeen(LocalDateTime.now());
     }
 
     @Transactional

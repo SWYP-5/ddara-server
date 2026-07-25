@@ -11,6 +11,8 @@ import com.app.backend.domain.notification.service.NotificationService;
 import com.app.backend.domain.shot.repository.ShotRepository;
 import com.app.backend.domain.upload.service.UploadService;
 import com.app.backend.domain.user.repository.UserRepository;
+import com.app.backend.global.exception.CustomException;
+import com.app.backend.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,6 +24,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
@@ -127,5 +130,33 @@ class GroupServiceTest {
         // then: 나간시각은 찍히지만 모임 삭제 조회조차 하지 않는다
         assertThat(membership.getLeftAt()).isNotNull();
         verify(groupRepository, org.mockito.Mockito.never()).findById(100L);
+    }
+
+    @Test
+    void 룰렛_열람을_기록하면_멤버십에_열람시각이_찍힌다() {
+        // given: 7번 유저가 100번 모임의 활성 멤버
+        Membership membership = activeMembership(100L, 7L);
+        given(groupRepository.existsById(100L)).willReturn(true);
+        given(membershipRepository.findByGroupIdAndUserId(100L, 7L))
+                .willReturn(Optional.of(membership));
+
+        // when
+        groupService.markNextStarterSeen(7L, 100L);
+
+        // then
+        assertThat(membership.getStarterSeenAt()).isNotNull();
+    }
+
+    @Test
+    void 모임_멤버가_아니면_룰렛_열람_기록시_예외를_던진다() {
+        // given: 7번 유저가 100번 모임의 멤버가 아님
+        given(groupRepository.existsById(100L)).willReturn(true);
+        given(membershipRepository.findByGroupIdAndUserId(100L, 7L))
+                .willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> groupService.markNextStarterSeen(7L, 100L))
+                .isInstanceOf(CustomException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_GROUP_MEMBER);
     }
 }
