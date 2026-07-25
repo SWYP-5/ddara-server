@@ -117,7 +117,7 @@ public class UserService {
             return NotificationSettingsResponse.allOn();   // 미설정 = 전체 on
         }
         try {
-            return objectMapper.readValue(prefs, NotificationSettingsResponse.class);
+            return NotificationSettingsResponse.fromJson(objectMapper.readTree(prefs));
         } catch (JsonProcessingException e) {
             return NotificationSettingsResponse.allOn();   // 깨진 값이면 기본값
         }
@@ -129,18 +129,29 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
+        NotificationSettingsRequest.Activity activity = request.activity();
+        NotificationSettingsRequest.Etc etc = request.etc();
+        NotificationSettingsResponse normalized = new NotificationSettingsResponse(
+                orTrue(request.allowAll()),
+                new NotificationSettingsResponse.Activity(
+                        orTrue(activity == null ? null : activity.followShot()),
+                        orTrue(activity == null ? null : activity.friendShot()),
+                        orTrue(activity == null ? null : activity.starterAssigned()),
+                        orTrue(activity == null ? null : activity.comment())),
+                new NotificationSettingsResponse.Etc(
+                        orTrue(etc == null ? null : etc.memberJoin())));
+
         try {
-            // 전체 교체 — 요청 묶음을 그대로 JSON으로 저장
-            user.updateNotificationPrefs(objectMapper.writeValueAsString(request));
+            user.updateNotificationPrefs(objectMapper.writeValueAsString(normalized));
         } catch (JsonProcessingException e) {
             throw new CustomException(ErrorCode.INVALID_INPUT);
         }
 
-        return new NotificationSettingsResponse(
-                request.allowAll(),
-                new NotificationSettingsResponse.Activity(
-                        request.activity().followShot(), request.activity().deadlineVote()),
-                new NotificationSettingsResponse.Etc(request.etc().memberJoin()));
+        return normalized;
+    }
+
+    private static boolean orTrue(Boolean value) {
+        return value == null ? true : value;
     }
 
     /** FCM 토큰 등록(U-06). 유저당 1개 — 재등록 시 덮어쓴다. */

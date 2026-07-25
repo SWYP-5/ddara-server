@@ -256,10 +256,10 @@ public class NotificationService {
             return false;   // 마스터 off → 아무 알림도 생성 안 함
         }
         return switch (type) {
-            case NEW_CYCLE, CYCLE_COMPLETED, STARTER_ASSIGNED -> prefs.activity().followShot();
-            case DEADLINE -> prefs.activity().deadlineVote();
+            case NEW_CYCLE, CYCLE_COMPLETED, DEADLINE -> prefs.activity().followShot();
+            case STARTER_ASSIGNED -> prefs.activity().starterAssigned();
             case MEMBER_JOIN -> prefs.etc().memberJoin();
-            default -> true;   // 2차 타입은 별도 토글 없음(현재 미발송)
+            default -> true;
         };
     }
 
@@ -268,7 +268,7 @@ public class NotificationService {
             return NotificationSettingsResponse.allOn();
         }
         try {
-            return objectMapper.readValue(prefsJson, NotificationSettingsResponse.class);
+            return NotificationSettingsResponse.fromJson(objectMapper.readTree(prefsJson));
         } catch (JsonProcessingException e) {
             return NotificationSettingsResponse.allOn();
         }
