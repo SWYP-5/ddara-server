@@ -21,7 +21,7 @@ public record GroupDetailResponse(
         int totalCycleCount,
         OffsetDateTime createdAt
 ) {
-    public record NextStarterResponse(Long userId, String nickname) {
+    public record NextStarterResponse(Long userId, String nickname, OffsetDateTime assignedAt, boolean seen) {
     }
 
     public static GroupDetailResponse of(Group group, List<MemberResponse> members,

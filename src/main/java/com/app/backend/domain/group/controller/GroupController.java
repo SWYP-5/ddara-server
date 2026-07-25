@@ -77,4 +77,11 @@ public class GroupController {
                                                        @Valid @RequestBody UpdateGroupNicknameRequest request) {
         return groupService.updateMyGroupNickname(userId, groupId, request.nickname());
     }
+
+    @PostMapping("/{groupId}/next-starter/seen")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void markNextStarterSeen(@AuthenticationPrincipal Long userId,
+                                    @PathVariable Long groupId) {
+        groupService.markNextStarterSeen(userId, groupId);
+    }
 }
