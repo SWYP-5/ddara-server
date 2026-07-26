@@ -14,11 +14,12 @@ public record GroupListItem(
         boolean thumbnailUnderReview,
         Long thumbnailUserId,
         CurrentCycleResponse currentCycle,
-        OffsetDateTime createdAt
+        OffsetDateTime createdAt,
+        boolean showStarterBorder
 ) {
     public static GroupListItem of(Group group, String ownerNickname, long memberCount,
                                    String thumbnailUrl, boolean thumbnailUnderReview, Long thumbnailUserId,
-                                   CurrentCycleResponse currentCycle) {
+                                   CurrentCycleResponse currentCycle, boolean showStarterBorder) {
         return new GroupListItem(
                 group.getId(),
                 group.getName(),
@@ -28,7 +29,8 @@ public record GroupListItem(
                 thumbnailUnderReview,
                 thumbnailUserId,
                 currentCycle,
-                KstTime.toOffset(group.getCreatedAt())
+                KstTime.toOffset(group.getCreatedAt()),
+                showStarterBorder
         );
     }
 }
