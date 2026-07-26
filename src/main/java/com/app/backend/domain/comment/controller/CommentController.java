@@ -56,4 +56,12 @@ public class CommentController {
                               @PathVariable Long commentId) {
         commentService.deleteComment(userId, commentId);
     }
+
+    // 코멘트 읽음 기록 (COMMENT-05)
+    @PostMapping("/api/shots/{shotId}/comments/read")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void markCommentsRead(@AuthenticationPrincipal Long userId,
+                                 @PathVariable Long shotId) {
+        commentService.markCommentsRead(userId, shotId);
+    }
 }
