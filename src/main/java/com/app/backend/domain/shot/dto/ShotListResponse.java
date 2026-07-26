@@ -21,6 +21,7 @@ public record ShotListResponse(
             String starterNickname,
             String starterImageUrl,
             boolean starterImageUnderReview,
+            boolean hasUnreadComments,
             CycleStatus status,
             OffsetDateTime deadlineAt
     ) {
