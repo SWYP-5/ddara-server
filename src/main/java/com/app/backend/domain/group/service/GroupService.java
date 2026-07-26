@@ -114,6 +114,9 @@ public class GroupService {
         List<Long> groupIds = memberships.stream().map(Membership::getGroupId).toList();
         Map<Long, Group> groupsById = groupRepository.findAllById(groupIds).stream()
                 .collect(Collectors.toMap(Group::getId, Function.identity()));
+        // 스타터 지정 테두리 판정용
+        Map<Long, Membership> myMembershipByGroup = memberships.stream()
+                .collect(Collectors.toMap(Membership::getGroupId, Function.identity()));
 
         List<GroupListItem> items = memberships.stream()
                 .map(membership -> groupsById.get(membership.getGroupId()))
@@ -138,8 +141,15 @@ public class GroupService {
                             : thumbnailShot.map(Shot::getImageUrl).orElse(null);
                     Long thumbnailUserId = thumbnailShot.map(Shot::getUserId).orElse(null);
 
+                    // 내가 다음 지정 스타터이고, 룰렛을 이미 봤을 때만 테두리 (열람 전엔 스포 방지)
+                    LocalDateTime mySeenAt = Optional.ofNullable(myMembershipByGroup.get(group.getId()))
+                            .map(Membership::getStarterSeenAt).orElse(null);
+                    boolean showStarterBorder = userId.equals(group.getNextStarterUserId())
+                            && mySeenAt != null && group.getNextStarterAssignedAt() != null
+                            && mySeenAt.isAfter(group.getNextStarterAssignedAt());
+
                     return GroupListItem.of(group, ownerNickname, memberCount,
-                            thumbnailUrl, thumbnailUnderReview, thumbnailUserId, currentCycle);
+                            thumbnailUrl, thumbnailUnderReview, thumbnailUserId, currentCycle, showStarterBorder);
                 })
                 .sorted(Comparator.comparing(GroupListItem::createdAt))
                 .toList();

@@ -4,6 +4,8 @@ import com.app.backend.domain.comment.dto.CommentListResponse;
 import com.app.backend.domain.comment.dto.CommentResponse;
 import com.app.backend.domain.comment.dto.CommentUpdateResponse;
 import com.app.backend.domain.comment.entity.Comment;
+import com.app.backend.domain.comment.entity.CommentRead;
+import com.app.backend.domain.comment.repository.CommentReadRepository;
 import com.app.backend.domain.comment.repository.CommentRepository;
 import com.app.backend.domain.cycle.entity.Cycle;
 import com.app.backend.domain.cycle.entity.CycleStatus;
@@ -40,6 +42,7 @@ public class CommentService {
 
 
     private final CommentRepository commentRepository;
+    private final CommentReadRepository commentReadRepository;
     private final ShotRepository shotRepository;
     private final CycleRepository cycleRepository;
     private final MembershipRepository membershipRepository;
@@ -49,6 +52,7 @@ public class CommentService {
     private final NotificationService notificationService;
 
     public CommentService(CommentRepository commentRepository,
+                          CommentReadRepository commentReadRepository,
                           ShotRepository shotRepository,
                           CycleRepository cycleRepository,
                           MembershipRepository membershipRepository,
@@ -57,6 +61,7 @@ public class CommentService {
                           GroupRepository groupRepository,
                           NotificationService notificationService) {
         this.commentRepository = commentRepository;
+        this.commentReadRepository = commentReadRepository;
         this.shotRepository = shotRepository;
         this.cycleRepository = cycleRepository;
         this.membershipRepository = membershipRepository;
@@ -64,6 +69,20 @@ public class CommentService {
         this.reportRepository = reportRepository;
         this.groupRepository = groupRepository;
         this.notificationService = notificationService;
+    }
+
+    @Transactional
+    public void markCommentsRead(Long userId, Long shotId) {
+        Shot shot = findValidShot(shotId);
+        Cycle cycle = cycleRepository.findById(shot.getCycleId())
+                .orElseThrow(() -> new CustomException(ErrorCode.CYCLE_NOT_FOUND));
+        requireMember(cycle.getGroupId(), userId);
+
+        LocalDateTime now = LocalDateTime.now();
+        commentReadRepository.findByUserIdAndShotId(userId, shotId)
+                .ifPresentOrElse(
+                        read -> read.updateReadAt(now),
+                        () -> commentReadRepository.save(new CommentRead(userId, shotId, now)));
     }
 
     // 요청자가 신고한 코멘트 id 집합

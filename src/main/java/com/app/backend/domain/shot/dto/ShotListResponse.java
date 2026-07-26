@@ -21,6 +21,7 @@ public record ShotListResponse(
             String starterNickname,
             String starterImageUrl,
             boolean starterImageUnderReview,
+            boolean hasUnreadComments,
             CycleStatus status,
             OffsetDateTime deadlineAt
     ) {
@@ -34,7 +35,8 @@ public record ShotListResponse(
             boolean isStarter,
             String status,          // open / empty / locked / reported
             String imageUrl,
-            OffsetDateTime uploadedAt
+            OffsetDateTime uploadedAt,
+            boolean hasUnreadComments
     ) {
     }
 }

@@ -1,5 +1,9 @@
 package com.app.backend.domain.shot.service;
 
+import com.app.backend.domain.comment.entity.Comment;
+import com.app.backend.domain.comment.entity.CommentRead;
+import com.app.backend.domain.comment.repository.CommentReadRepository;
+import com.app.backend.domain.comment.repository.CommentRepository;
 import com.app.backend.domain.cycle.entity.Cycle;
 import com.app.backend.domain.cycle.entity.CycleStatus;
 import com.app.backend.domain.cycle.repository.CycleRepository;
@@ -25,6 +29,7 @@ import com.app.backend.global.util.NicknameOrder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.Comparator;
 import java.util.List;
@@ -43,6 +48,8 @@ public class ShotService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final NextStarterAssigner nextStarterAssigner;
+    private final CommentRepository commentRepository;
+    private final CommentReadRepository commentReadRepository;
 
     public ShotService(CycleRepository cycleRepository,
                        GroupRepository groupRepository,
@@ -50,7 +57,9 @@ public class ShotService {
                        ShotRepository shotRepository,
                        UserRepository userRepository,
                        NotificationService notificationService,
-                       NextStarterAssigner nextStarterAssigner) {
+                       NextStarterAssigner nextStarterAssigner,
+                       CommentRepository commentRepository,
+                       CommentReadRepository commentReadRepository) {
         this.cycleRepository = cycleRepository;
         this.groupRepository = groupRepository;
         this.membershipRepository = membershipRepository;
@@ -58,6 +67,8 @@ public class ShotService {
         this.userRepository = userRepository;
         this.notificationService = notificationService;
         this.nextStarterAssigner = nextStarterAssigner;
+        this.commentRepository = commentRepository;
+        this.commentReadRepository = commentReadRepository;
     }
 
     @Transactional
@@ -150,6 +161,17 @@ public class ShotService {
         Long starterId = cycle.getStarterUserId();
         boolean cycleDone = cycle.getStatus() == CycleStatus.DONE;
 
+        // 안 읽은 코멘트 확인용
+        List<Long> shotIds = shotsByUser.values().stream().map(Shot::getId).toList();
+        Map<Long, LocalDateTime> latestCommentByShot = commentRepository
+                .findByShotIdInAndDeletedAtIsNull(shotIds).stream()
+                .filter(c -> !c.isRemoved())   // 운영 제거 제외, 검토중은 포함
+                .collect(Collectors.toMap(Comment::getShotId, Comment::getCreatedAt,
+                        (a, b) -> a.isAfter(b) ? a : b));
+        Map<Long, LocalDateTime> readAtByShot = commentReadRepository
+                .findByUserIdAndShotIdIn(userId, shotIds).stream()
+                .collect(Collectors.toMap(CommentRead::getShotId, CommentRead::getReadAt));
+
         List<ShotListResponse.MemberShot> memberShots = members.stream()
                 .map(membership -> {
                     Long memberId = membership.getUserId();
@@ -174,6 +196,12 @@ public class ShotService {
                         imageUrl = shot.getImageUrl();
                         uploadedAt = KstTime.toOffset(shot.getUploadedAt());
                     }
+                    boolean hasUnreadComments = false;
+                    if (shot != null) {
+                        LocalDateTime latest = latestCommentByShot.get(shot.getId());
+                        LocalDateTime readAt = readAtByShot.get(shot.getId());
+                        hasUnreadComments = latest != null && (readAt == null || latest.isAfter(readAt));
+                    }
                     return new ShotListResponse.MemberShot(
                             memberId,
                             shot != null ? shot.getId() : null,
@@ -182,7 +210,8 @@ public class ShotService {
                             isStarter,
                             status,
                             imageUrl,
-                            uploadedAt);
+                            uploadedAt,
+                            hasUnreadComments);
                 })
                 .sorted(Comparator
                         .comparing((ShotListResponse.MemberShot ms) -> !ms.userId().equals(userId))
@@ -198,6 +227,13 @@ public class ShotService {
                 .orElse(null);
         Shot starterShot = shotsByUser.get(starterId);
         boolean starterUnderReview = starterShot != null && starterShot.isUnderReview();
+        // 스타터 배너 사진의 안 읽은 댓글 여부
+        boolean starterHasUnreadComments = false;
+        if (starterShot != null) {
+            LocalDateTime latest = latestCommentByShot.get(starterShot.getId());
+            LocalDateTime readAt = readAtByShot.get(starterShot.getId());
+            starterHasUnreadComments = latest != null && (readAt == null || latest.isAfter(readAt));
+        }
         ShotListResponse.CycleBanner cycleBanner = new ShotListResponse.CycleBanner(
                 cycle.getId(),
                 cycle.getCycleNumber(),
@@ -207,6 +243,7 @@ public class ShotService {
                 starterNickname,
                 starterUnderReview ? null : (starterShot != null ? starterShot.getImageUrl() : null),
                 starterUnderReview,
+                starterHasUnreadComments,
                 cycle.getStatus(),
                 KstTime.toOffset(cycle.getDeadlineAt()));
 
