@@ -7,6 +7,8 @@ public enum NotificationType {
     MEMBER_JOIN,
     DEADLINE,
     STARTER_ASSIGNED,
+    FRIEND_SHOT,
+    COMMENT,
     // 2차
     VOTE_START,
     VOTE_RESULT,
