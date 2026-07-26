@@ -215,6 +215,13 @@ public class ShotService {
                 .orElse(null);
         Shot starterShot = shotsByUser.get(starterId);
         boolean starterUnderReview = starterShot != null && starterShot.isUnderReview();
+        // 스타터 배너 사진의 안 읽은 댓글 여부
+        boolean starterHasUnreadComments = false;
+        if (starterShot != null) {
+            LocalDateTime latest = latestCommentByShot.get(starterShot.getId());
+            LocalDateTime readAt = readAtByShot.get(starterShot.getId());
+            starterHasUnreadComments = latest != null && (readAt == null || latest.isAfter(readAt));
+        }
         ShotListResponse.CycleBanner cycleBanner = new ShotListResponse.CycleBanner(
                 cycle.getId(),
                 cycle.getCycleNumber(),
@@ -224,6 +231,7 @@ public class ShotService {
                 starterNickname,
                 starterUnderReview ? null : (starterShot != null ? starterShot.getImageUrl() : null),
                 starterUnderReview,
+                starterHasUnreadComments,
                 cycle.getStatus(),
                 KstTime.toOffset(cycle.getDeadlineAt()));
 
