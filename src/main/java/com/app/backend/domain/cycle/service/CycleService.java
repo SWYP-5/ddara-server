@@ -96,7 +96,9 @@ public class CycleService {
                 .imageUrl(request.imageUrl())
                 .build());
 
-        group.clearNextStarter();
+        if (!userId.equals(group.getNextStarterUserId())) {
+            group.clearNextStarter();
+        }
 
         notificationService.createNewCycle(groupId, group.getName(), cycle.getId(), userId, cycle.getDeadlineAt());
 
