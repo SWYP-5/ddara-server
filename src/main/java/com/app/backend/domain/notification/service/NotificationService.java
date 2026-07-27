@@ -44,9 +44,12 @@ public class NotificationService {
     private static final Collection<NotificationType> ETC_TYPES = EnumSet.of(
             NotificationType.MEMBER_JOIN);
 
-    // payload에 스타터 사진이 실리는 type
+    // payload에 스타터 사진이 실리는 type (cycleId로 스타터샷 조회)
     private static final Collection<NotificationType> STARTER_IMAGE_TYPES = EnumSet.of(
             NotificationType.NEW_CYCLE, NotificationType.CYCLE_COMPLETED);
+    // payload에 특정 사진이 실리는 type (shotId로 조회)
+    private static final Collection<NotificationType> SHOT_IMAGE_TYPES = EnumSet.of(
+            NotificationType.FRIEND_SHOT, NotificationType.COMMENT);
 
 
     private final NotificationRepository notificationRepository;
@@ -114,7 +117,7 @@ public class NotificationService {
     /** 멤버 인증샷 업로드 → 올린 사람 제외 멤버 전원 */
     @Transactional
     public void createFriendShot(Long groupId, String groupName, String actorNickname,
-                                 Long uploaderUserId, Long cycleId) {
+                                 Long uploaderUserId, Long cycleId, Long shotId) {
         List<Long> recipients = excludeBlockers(activeMemberIds(groupId), uploaderUserId).stream()
                 .filter(id -> !id.equals(uploaderUserId))
                 .toList();
@@ -123,7 +126,8 @@ public class NotificationService {
         payload.put("groupName", groupName);
         payload.put("actorNickname", actorNickname);
         payload.put("cycleId", cycleId);
-        payload.put("imageUrl", null);
+        payload.put("shotId", shotId);
+        payload.put("imageUrl", shotImageUrl(shotId));
         notifyEach(recipients, NotificationType.FRIEND_SHOT, payload);
     }
 
@@ -141,7 +145,7 @@ public class NotificationService {
         payload.put("actorNickname", actorNickname);
         payload.put("cycleId", cycleId);
         payload.put("shotId", shotId);
-        payload.put("imageUrl", null);
+        payload.put("imageUrl", shotImageUrl(shotId));
         notifyEach(recipients, NotificationType.COMMENT, payload);
     }
 
@@ -193,6 +197,17 @@ public class NotificationService {
             return null;
         }
         return shotRepository.findByCycleIdAndType(cycleId, ShotType.STARTER)
+                .filter(s -> !s.isUnderReview() && !s.isRemoved())
+                .map(Shot::getImageUrl)
+                .orElse(null);
+    }
+
+    /** 특정 사진의 URL */
+    private String shotImageUrl(Long shotId) {
+        if (shotId == null) {
+            return null;
+        }
+        return shotRepository.findById(shotId)
                 .filter(s -> !s.isUnderReview() && !s.isRemoved())
                 .map(Shot::getImageUrl)
                 .orElse(null);
@@ -378,6 +393,8 @@ public class NotificationService {
         }
         if (STARTER_IMAGE_TYPES.contains(n.getType())) {
             applyStarterImageState(payload);
+        } else if (SHOT_IMAGE_TYPES.contains(n.getType())) {
+            applyShotImageState(payload);
         }
         return new NotificationItem(
                 n.getId(),                       // 알림 id
@@ -398,6 +415,18 @@ public class NotificationService {
         payload.put("imageUrl", hidden || underReview ? null : shot.getImageUrl());
         payload.put("imageUnderReview", underReview);
         payload.put("starterUserId", shot != null ? shot.getUserId() : null);
+    }
+
+    // shotId로 사진을 조회해 imageUrl을 조회 시점 상태로 덮어쓴다
+    private void applyShotImageState(Map<String, Object> payload) {
+        Shot shot = null;
+        if (payload.get("shotId") instanceof Number shotId) {
+            shot = shotRepository.findById(shotId.longValue()).orElse(null);
+        }
+        boolean hidden = shot == null || shot.isRemoved();
+        boolean underReview = !hidden && shot.isUnderReview();
+        payload.put("imageUrl", hidden || underReview ? null : shot.getImageUrl());
+        payload.put("imageUnderReview", underReview);
     }
 
 }
