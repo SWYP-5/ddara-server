@@ -121,7 +121,7 @@ public class ShotService {
                     .findByGroupIdAndUserId(cycle.getGroupId(), userId)
                     .map(Membership::getNickname).orElse("친구");
             notificationService.createFriendShot(
-                    cycle.getGroupId(), groupName, uploaderNickname, userId, cycleId);
+                    cycle.getGroupId(), groupName, uploaderNickname, userId, cycleId, shot.getId());
         }
 
         // 전원 업로드 시 자동 마감 (24h 자동마감과 함께 마감되는 2가지 경우 중 하나)
