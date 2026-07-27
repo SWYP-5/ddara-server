@@ -141,12 +141,13 @@ public class GroupService {
                             : thumbnailShot.map(Shot::getImageUrl).orElse(null);
                     Long thumbnailUserId = thumbnailShot.map(Shot::getUserId).orElse(null);
 
-                    // 내가 다음 지정 스타터이고, 룰렛을 이미 봤을 때만 테두리 (열람 전엔 스포 방지)
+                    // 내가 다음 지정 스타터이고, 룰렛을 봤고, 아직 회차를 시작하지 않았을 때만 테두리
                     LocalDateTime mySeenAt = Optional.ofNullable(myMembershipByGroup.get(group.getId()))
                             .map(Membership::getStarterSeenAt).orElse(null);
                     boolean showStarterBorder = userId.equals(group.getNextStarterUserId())
                             && mySeenAt != null && group.getNextStarterAssignedAt() != null
-                            && mySeenAt.isAfter(group.getNextStarterAssignedAt());
+                            && mySeenAt.isAfter(group.getNextStarterAssignedAt())
+                            && inProgress.isEmpty();
 
                     return GroupListItem.of(group, ownerNickname, memberCount,
                             thumbnailUrl, thumbnailUnderReview, thumbnailUserId, currentCycle, showStarterBorder);
