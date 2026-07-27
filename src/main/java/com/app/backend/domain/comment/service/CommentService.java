@@ -78,6 +78,11 @@ public class CommentService {
                 .orElseThrow(() -> new CustomException(ErrorCode.CYCLE_NOT_FOUND));
         requireMember(cycle.getGroupId(), userId);
 
+        upsertRead(userId, shotId);
+    }
+
+    // 유저의 해당 사진 댓글 읽음 시각을 현재로 갱신(없으면 생성)
+    private void upsertRead(Long userId, Long shotId) {
         LocalDateTime now = LocalDateTime.now();
         commentReadRepository.findByUserIdAndShotId(userId, shotId)
                 .ifPresentOrElse(
@@ -115,6 +120,9 @@ public class CommentService {
                 .userId(userId)
                 .content(content)
                 .build());
+
+        // 댓글을 단 사람은 그 사진 댓글을 본 것이므로 자동 읽음 처리 (작성 후 별도 읽음 호출 불필요)
+        upsertRead(userId, shotId);
 
         String nickname = membershipRepository.findByGroupIdAndUserId(cycle.getGroupId(), userId)
                 .map(Membership::getNickname)
