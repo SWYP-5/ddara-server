@@ -2,6 +2,9 @@ package com.app.backend.domain.notification.service;
 
 import com.app.backend.domain.block.entity.Block;
 import com.app.backend.domain.block.repository.BlockRepository;
+import com.app.backend.domain.cycle.entity.Cycle;
+import com.app.backend.domain.cycle.entity.CycleStatus;
+import com.app.backend.domain.cycle.repository.CycleRepository;
 import com.app.backend.domain.group.entity.Membership;
 import com.app.backend.domain.group.repository.MembershipRepository;
 import com.app.backend.domain.notification.dto.NotificationItem;
@@ -57,6 +60,7 @@ public class NotificationService {
     private final MembershipRepository membershipRepository;
     private final UserRepository userRepository;
     private final ShotRepository shotRepository;
+    private final CycleRepository cycleRepository;
     private final BlockRepository blockRepository;
     private final FcmService fcmService;
 
@@ -65,6 +69,7 @@ public class NotificationService {
                                MembershipRepository membershipRepository,
                                UserRepository userRepository,
                                ShotRepository shotRepository,
+                               CycleRepository cycleRepository,
                                BlockRepository blockRepository,
                                FcmService fcmService) {
         this.notificationRepository = notificationRepository;
@@ -72,6 +77,7 @@ public class NotificationService {
         this.membershipRepository = membershipRepository;
         this.userRepository = userRepository;
         this.shotRepository = shotRepository;
+        this.cycleRepository = cycleRepository;
         this.blockRepository = blockRepository;
         this.fcmService = fcmService;
     }
@@ -346,7 +352,7 @@ public class NotificationService {
         List<NotificationItem> items = notificationRepository
                 .findByUserIdAndTypeInOrderByCreatedAtDesc(userId, types, PageRequest.of(0, size))
                 .stream()
-                .map(this::toItem)   // 알림 엔티티 → 응답 아이템(payload JSON 파싱 + 시각 +09:00 변환)
+                .map(n -> toItem(n, userId))   // 알림 엔티티 → 응답 아이템(payload JSON 파싱 + 시각 +09:00 변환)
                 .toList();
 
         // 안 읽은 알림 총 개수(뱃지용) — 필터와 무관하게 전체 기준
@@ -384,7 +390,7 @@ public class NotificationService {
     }
 
     // 알림 엔티티 1건 → 응답용 NotificationItem 1건으로 변환
-    private NotificationItem toItem(Notification n) {
+    private NotificationItem toItem(Notification n, Long viewerUserId) {
         Map<String, Object> payload;   // DB엔 payload가 JSON "문자열"로 저장돼 있어서, 응답 땐 진짜 JSON 객체로 다시 파싱
         try {
             payload = objectMapper.readValue(n.getPayload(), new TypeReference<LinkedHashMap<String, Object>>() {});
@@ -394,7 +400,7 @@ public class NotificationService {
         if (STARTER_IMAGE_TYPES.contains(n.getType())) {
             applyStarterImageState(payload);
         } else if (SHOT_IMAGE_TYPES.contains(n.getType())) {
-            applyShotImageState(payload);
+            applyShotImageState(payload, viewerUserId, n.getType() == NotificationType.FRIEND_SHOT);
         }
         return new NotificationItem(
                 n.getId(),                       // 알림 id
@@ -418,15 +424,30 @@ public class NotificationService {
     }
 
     // shotId로 사진을 조회해 imageUrl을 조회 시점 상태로 덮어쓴다
-    private void applyShotImageState(Map<String, Object> payload) {
+    private void applyShotImageState(Map<String, Object> payload, Long viewerUserId, boolean applyLock) {
         Shot shot = null;
         if (payload.get("shotId") instanceof Number shotId) {
             shot = shotRepository.findById(shotId.longValue()).orElse(null);
         }
         boolean hidden = shot == null || shot.isRemoved();
         boolean underReview = !hidden && shot.isUnderReview();
-        payload.put("imageUrl", hidden || underReview ? null : shot.getImageUrl());
+        boolean locked = applyLock && !hidden && !underReview && !canView(shot, viewerUserId);
+        payload.put("imageUrl", hidden || underReview || locked ? null : shot.getImageUrl());
         payload.put("imageUnderReview", underReview);
+    }
+
+    // SHOT-02 잠금 규칙: 마감된 회차이거나, 보는 사람이 그 회차에 사진을 올렸으면 볼 수 있다
+    private boolean canView(Shot shot, Long viewerUserId) {
+        Cycle cycle = cycleRepository.findById(shot.getCycleId()).orElse(null);
+        if (cycle == null) {
+            return false;
+        }
+        if (cycle.getStatus() == CycleStatus.DONE) {
+            return true;
+        }
+        return shotRepository.findByCycleIdAndUserId(cycle.getId(), viewerUserId)
+                .filter(Shot::isVisible)
+                .isPresent();
     }
 
 }
