@@ -423,7 +423,7 @@ public class NotificationService {
         payload.put("starterUserId", shot != null ? shot.getUserId() : null);
     }
 
-    // shotId로 사진을 조회해 imageUrl을 조회 시점 상태로 덮어쓴다
+    // shotId로 사진을 조회해 조회 시점 상태를 반영한다.
     private void applyShotImageState(Map<String, Object> payload, Long viewerUserId, boolean applyLock) {
         Shot shot = null;
         if (payload.get("shotId") instanceof Number shotId) {
@@ -432,8 +432,9 @@ public class NotificationService {
         boolean hidden = shot == null || shot.isRemoved();
         boolean underReview = !hidden && shot.isUnderReview();
         boolean locked = applyLock && !hidden && !underReview && !canView(shot, viewerUserId);
-        payload.put("imageUrl", hidden || underReview || locked ? null : shot.getImageUrl());
+        payload.put("imageUrl", hidden || underReview ? null : shot.getImageUrl());
         payload.put("imageUnderReview", underReview);
+        payload.put("locked", locked);
     }
 
     // SHOT-02 잠금 규칙: 마감된 회차이거나, 보는 사람이 그 회차에 사진을 올렸으면 볼 수 있다
