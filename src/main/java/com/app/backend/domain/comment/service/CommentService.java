@@ -128,12 +128,19 @@ public class CommentService {
                 .map(Membership::getNickname)
                 .orElse(null);
 
-        // 사진 올린사람에게 코멘트 알림
+        // 사진 주인 + 그 사진에 이미 댓글 단 사람에게 코멘트 알림
+        List<Long> participantUserIds = commentRepository
+                .findByShotIdAndDeletedAtIsNullOrderByCreatedAtAsc(shotId).stream()
+                .filter(c -> !c.isRemoved())
+                .map(Comment::getUserId)
+                .distinct()
+                .filter(id -> !id.equals(userId) && !id.equals(shot.getUserId()))
+                .toList();
         String groupName = groupRepository.findById(cycle.getGroupId())
                 .map(Group::getName).orElse("모임");
         notificationService.createComment(cycle.getGroupId(), groupName,
                 nickname != null ? nickname : "친구",
-                shotId, shot.getUserId(), userId, cycle.getId());
+                shotId, shot.getUserId(), participantUserIds, userId, cycle.getId());
 
         String profileImageUrl = userRepository.findById(userId)
                 .map(User::getProfileImageUrl)

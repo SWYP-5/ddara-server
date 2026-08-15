@@ -137,14 +137,28 @@ public class NotificationService {
         notifyEach(recipients, NotificationType.FRIEND_SHOT, payload);
     }
 
-    /** 코멘트 작성 → 사진 올리 사람 */
+    /** 코멘트 작성 → 사진 주인(isMyShot=true) + 그 사진에 이미 댓글 단 참여자(isMyShot=false) */
     @Transactional
     public void createComment(Long groupId, String groupName, String actorNickname,
-                              Long shotId, Long shotOwnerUserId, Long commenterUserId, Long cycleId) {
-        if (shotOwnerUserId.equals(commenterUserId)) {
-            return;
+                              Long shotId, Long shotOwnerUserId, List<Long> participantUserIds,
+                              Long commenterUserId, Long cycleId) {
+        if (!shotOwnerUserId.equals(commenterUserId)) {
+            List<Long> owner = excludeBlockers(List.of(shotOwnerUserId), commenterUserId);
+            notifyEach(owner, NotificationType.COMMENT,
+                    commentPayload(groupId, groupName, actorNickname, cycleId, shotId, true));
         }
-        List<Long> recipients = excludeBlockers(List.of(shotOwnerUserId), commenterUserId);
+        List<Long> participants = excludeBlockers(participantUserIds, commenterUserId).stream()
+                .filter(id -> !id.equals(commenterUserId) && !id.equals(shotOwnerUserId))
+                .distinct()
+                .toList();
+        if (!participants.isEmpty()) {
+            notifyEach(participants, NotificationType.COMMENT,
+                    commentPayload(groupId, groupName, actorNickname, cycleId, shotId, false));
+        }
+    }
+
+    private Map<String, Object> commentPayload(Long groupId, String groupName, String actorNickname,
+                                               Long cycleId, Long shotId, boolean isMyShot) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("groupId", groupId);
         payload.put("groupName", groupName);
@@ -152,7 +166,8 @@ public class NotificationService {
         payload.put("cycleId", cycleId);
         payload.put("shotId", shotId);
         payload.put("imageUrl", shotImageUrl(shotId));
-        notifyEach(recipients, NotificationType.COMMENT, payload);
+        payload.put("isMyShot", isMyShot);
+        return payload;
     }
 
     /** 모임 합류 → 합류자 본인 제외 멤버 전원. */
@@ -286,7 +301,11 @@ public class NotificationService {
             case CYCLE_COMPLETED -> "'" + groupName + "'에서 따라찍기가 완료되었어요!";
             case MEMBER_JOIN -> payload.getOrDefault("actorNickname", "친구") + "님이 '" + groupName + "' 모임에 합류했어요";
             case FRIEND_SHOT -> "'" + groupName + "'에서 " + payload.getOrDefault("actorNickname", "친구") + "님이 따라찍기를 올렸어요";
-            case COMMENT -> "'" + groupName + "'에서 " + payload.getOrDefault("actorNickname", "친구") + "님이 내 사진에 댓글을 남겼어요";
+            case COMMENT -> {
+                boolean isMyShot = Boolean.TRUE.equals(payload.get("isMyShot"));
+                yield "'" + groupName + "'에서 " + payload.getOrDefault("actorNickname", "친구")
+                        + "님이 " + (isMyShot ? "내 사진에" : "내가 댓글 단 사진에") + " 댓글을 남겼어요";
+            }
             case DEADLINE -> {
                 int remaining = ((Number) payload.getOrDefault("remainingMinutes", 60)).intValue();
                 String left = remaining >= 60 ? (remaining / 60) + "시간" : remaining + "분";
