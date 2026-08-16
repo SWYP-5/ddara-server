@@ -138,9 +138,12 @@ public class CommentService {
                 .toList();
         String groupName = groupRepository.findById(cycle.getGroupId())
                 .map(Group::getName).orElse("모임");
+        String ownerNickname = membershipRepository
+                .findByGroupIdAndUserId(cycle.getGroupId(), shot.getUserId())
+                .map(Membership::getNickname).orElse("친구");
         notificationService.createComment(cycle.getGroupId(), groupName,
                 nickname != null ? nickname : "친구",
-                shotId, shot.getUserId(), participantUserIds, userId, cycle.getId());
+                shotId, shot.getUserId(), ownerNickname, participantUserIds, userId, cycle.getId());
 
         String profileImageUrl = userRepository.findById(userId)
                 .map(User::getProfileImageUrl)
