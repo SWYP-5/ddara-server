@@ -56,6 +56,10 @@ public class User {
     @Column(name = "fcm_token", length = 255)
     private String fcmToken;
 
+    // 카메라 가이드 시청 여부
+    @Column(name = "camera_guide_seen", columnDefinition = "TINYINT(1) NOT NULL DEFAULT 0")
+    private boolean cameraGuideSeen;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -92,6 +96,10 @@ public class User {
     /** FCM 토큰 제거 — 로그아웃/무효 토큰 시 null. (U-06) */
     public void clearFcmToken() {
         this.fcmToken = null;
+    }
+
+    public void markCameraGuideSeen() {
+        this.cameraGuideSeen = true;
     }
 
     /**
