@@ -1,5 +1,6 @@
 package com.app.backend.domain.user.controller;
 
+import com.app.backend.domain.user.dto.CameraGuideResponse;
 import com.app.backend.domain.user.dto.FcmTokenRequest;
 import com.app.backend.domain.user.dto.NotificationSettingsRequest;
 import com.app.backend.domain.user.dto.NotificationSettingsResponse;
@@ -65,6 +66,19 @@ public class UserController {
     public void withdraw(@AuthenticationPrincipal Long userId,
                          @RequestBody(required = false) WithdrawRequest request) {
         userService.withdraw(userId, request != null ? request.appleAuthorizationCode() : null);
+    }
+
+    // 카메라 가이드 노출 여부 조회
+    @GetMapping("/me/camera-guide")
+    public CameraGuideResponse getCameraGuide(@AuthenticationPrincipal Long userId) {
+        return userService.getCameraGuideSeen(userId);
+    }
+
+    // 카메라 가이드 봤음 기록
+    @PatchMapping("/me/camera-guide")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void markCameraGuideSeen(@AuthenticationPrincipal Long userId) {
+        userService.markCameraGuideSeen(userId);
     }
 
     // FCM 토큰 등록 (U-06) — 유저당 1개, 덮어쓰기

@@ -7,6 +7,7 @@ import com.app.backend.domain.group.repository.MembershipRepository;
 import com.app.backend.domain.group.service.GroupService;
 import com.app.backend.domain.notification.repository.NotificationRepository;
 import com.app.backend.domain.upload.service.UploadService;
+import com.app.backend.domain.user.dto.CameraGuideResponse;
 import com.app.backend.domain.user.dto.NotificationSettingsRequest;
 import com.app.backend.domain.user.dto.NotificationSettingsResponse;
 import com.app.backend.domain.user.dto.ProfileImageResponse;
@@ -121,6 +122,22 @@ public class UserService {
         } catch (JsonProcessingException e) {
             return NotificationSettingsResponse.allOn();   // 깨진 값이면 기본값
         }
+    }
+
+    /** 카메라 가이드 노출 여부 조회 */
+    @Transactional(readOnly = true)
+    public CameraGuideResponse getCameraGuideSeen(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        return new CameraGuideResponse(user.isCameraGuideSeen());
+    }
+
+    /** 카메라 가이드 봤음 기록 */
+    @Transactional
+    public void markCameraGuideSeen(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        user.markCameraGuideSeen();
     }
 
     @Transactional
