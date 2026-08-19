@@ -47,7 +47,7 @@ public class GroupService {
     private static final int MAX_INVITE_CODE_ATTEMPTS = 10;
     private static final int MAX_GROUPS_PER_USER = 20;
     private static final int MAX_MEMBERS_PER_GROUP = 8;
-    private static final int MIN_MEMBERS_TO_START_CYCLE = 3;
+    private static final int MIN_MEMBERS_TO_START_CYCLE = 2;
     private static final int GROUP_RETENTION_DAYS = 5;
 
     private final GroupRepository groupRepository;
