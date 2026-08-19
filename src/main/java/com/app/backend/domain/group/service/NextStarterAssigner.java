@@ -17,7 +17,7 @@ import java.util.concurrent.ThreadLocalRandom;
 @Component
 public class NextStarterAssigner {
 
-    private static final int MIN_MEMBERS_TO_START = 3;
+    private static final int MIN_MEMBERS_TO_START = 2;
 
     private final GroupRepository groupRepository;
     private final MembershipRepository membershipRepository;

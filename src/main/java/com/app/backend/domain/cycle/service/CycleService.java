@@ -35,7 +35,7 @@ import java.util.stream.Collectors;
 @Service
 public class CycleService {
 
-    private static final int MIN_MEMBERS_TO_START = 3;
+    private static final int MIN_MEMBERS_TO_START = 2;
     private static final int CYCLE_DURATION_HOURS = 24;
 
     private final GroupRepository groupRepository;
