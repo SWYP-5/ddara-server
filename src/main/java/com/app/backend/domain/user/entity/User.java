@@ -56,9 +56,9 @@ public class User {
     @Column(name = "fcm_token", length = 255)
     private String fcmToken;
 
-    // 카메라 가이드 시청 여부
-    @Column(name = "camera_guide_seen", columnDefinition = "TINYINT(1) NOT NULL DEFAULT 0")
-    private boolean cameraGuideSeen;
+    // 본 카메라 가이드 파트 키 목록(JSON)
+    @Column(name = "camera_guides_seen", columnDefinition = "json")
+    private String cameraGuidesSeen;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
@@ -98,8 +98,9 @@ public class User {
         this.fcmToken = null;
     }
 
-    public void markCameraGuideSeen() {
-        this.cameraGuideSeen = true;
+    /** 본 가이드 파트 키 목록 교체. */
+    public void updateCameraGuidesSeen(String cameraGuidesSeen) {
+        this.cameraGuidesSeen = cameraGuidesSeen;
     }
 
     /**
