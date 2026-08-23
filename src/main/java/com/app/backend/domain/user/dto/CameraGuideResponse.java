@@ -1,4 +1,7 @@
 package com.app.backend.domain.user.dto;
 
-public record CameraGuideResponse(boolean seen) {
+import java.util.List;
+
+/** 카메라 가이드 열람 여부 조회 응답 */
+public record CameraGuideResponse(List<String> seen) {
 }

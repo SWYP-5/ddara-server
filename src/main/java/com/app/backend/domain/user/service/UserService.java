@@ -18,6 +18,7 @@ import com.app.backend.domain.user.repository.UserRepository;
 import com.app.backend.global.exception.CustomException;
 import com.app.backend.global.exception.ErrorCode;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,6 +27,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
 public class UserService {
@@ -124,20 +127,43 @@ public class UserService {
         }
     }
 
-    /** 카메라 가이드 노출 여부 조회 */
+    /** 본 카메라 가이드 파트 키 목록 조회 */
     @Transactional(readOnly = true)
     public CameraGuideResponse getCameraGuideSeen(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-        return new CameraGuideResponse(user.isCameraGuideSeen());
+        return new CameraGuideResponse(parseGuidesSeen(user.getCameraGuidesSeen()));
     }
 
-    /** 카메라 가이드 봤음 기록 */
+    /** 카메라 가이드 파트 열람 기록 */
     @Transactional
-    public void markCameraGuideSeen(Long userId) {
+    public void markCameraGuideSeen(Long userId, String key) {
+        if (key == null || key.isBlank()) {
+            throw new CustomException(ErrorCode.INVALID_INPUT);
+        }
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-        user.markCameraGuideSeen();
+        List<String> seen = parseGuidesSeen(user.getCameraGuidesSeen());
+        if (!seen.contains(key)) {
+            seen.add(key);
+            try {
+                user.updateCameraGuidesSeen(objectMapper.writeValueAsString(seen));
+            } catch (JsonProcessingException e) {
+                throw new CustomException(ErrorCode.INVALID_INPUT);
+            }
+        }
+    }
+
+    /** JSON 문자열을 키 목록으로 파싱 */
+    private List<String> parseGuidesSeen(String json) {
+        if (json == null || json.isBlank()) {
+            return new ArrayList<>();
+        }
+        try {
+            return objectMapper.readValue(json, new TypeReference<List<String>>() {});
+        } catch (JsonProcessingException e) {
+            return new ArrayList<>();
+        }
     }
 
     @Transactional
