@@ -268,7 +268,7 @@ public class NotificationService {
                 continue;
             }
             // 인앱 알림은 알림 설정과 무관하게 항상 저장한다 — 설정을 꺼도 알림 목록엔 표시돼야 한다.
-            notificationRepository.save(Notification.builder()
+            Notification saved = notificationRepository.save(Notification.builder()
                     .userId(userId)
                     .type(type)
                     .payload(payloadJson)
@@ -276,7 +276,8 @@ public class NotificationService {
             // 푸시(FCM)만 알림 설정을 따른다 — 꺼져 있으면 푸시는 발송하지 않는다.
             // 실패해도 예외를 던지지 않으므로(FcmService 내부 처리) 위 인앱 저장은 항상 유지된다.
             if (isAllowed(user.getNotificationPrefs(), type)) {
-                fcmService.sendTo(user, pushTitle(type), pushBody(type, payload), pushData(type, payload));
+                fcmService.sendTo(user, pushTitle(type), pushBody(type, payload),
+                        pushData(type, payload, saved.getId()));
             }
         }
     }
@@ -321,9 +322,10 @@ public class NotificationService {
     }
 
     /** 푸시 클릭 시 앱이 화면 이동에 쓸 data(모두 문자열이어야 함 — FCM 규격). */
-    private Map<String, String> pushData(NotificationType type, Map<String, Object> payload) {
+    private Map<String, String> pushData(NotificationType type, Map<String, Object> payload, Long notificationId) {
         Map<String, String> data = new LinkedHashMap<>();
         data.put("type", type.name());
+        data.put("notificationId", String.valueOf(notificationId));
         payload.forEach((k, v) -> {
             if (v != null) {
                 data.put(k, String.valueOf(v));
