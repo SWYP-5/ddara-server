@@ -24,7 +24,6 @@ import com.app.backend.global.util.KstTime;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -370,13 +369,13 @@ public class NotificationService {
     }
 
     @Transactional(readOnly = true)
-    public NotificationListResponse getNotifications(Long userId, String category, int size) {
+    public NotificationListResponse getNotifications(Long userId, String category) {
         // category(all/activity/etc)를 실제 알림 type 집합으로 변환
         Collection<NotificationType> types = resolveTypes(category);
 
-        // 내(userId) 알림 중 해당 type들만, 최신순으로 size개 조회 → 화면용 NotificationItem으로 변환
+        // 내(userId) 알림 중 해당 type들만, 최신순 전체 조회 → 화면용 NotificationItem으로 변환
         List<NotificationItem> items = notificationRepository
-                .findByUserIdAndTypeInOrderByCreatedAtDesc(userId, types, PageRequest.of(0, size))
+                .findByUserIdAndTypeInOrderByCreatedAtDesc(userId, types)
                 .stream()
                 .map(n -> toItem(n, userId))   // 알림 엔티티 → 응답 아이템(payload JSON 파싱 + 시각 +09:00 변환)
                 .toList();

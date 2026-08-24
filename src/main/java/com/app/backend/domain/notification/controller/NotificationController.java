@@ -25,10 +25,9 @@ public class NotificationController {
     // 알림 목록 조회 (N-01)
     @GetMapping
     public NotificationListResponse getNotifications(
-            @AuthenticationPrincipal Long userId,                  // 로그인한 본인 id (JWT 토큰에서 자동 추출)
-            @RequestParam(defaultValue = "all") String category,  // 필터: all(전체) / activity(활동) / etc(기타). 안 주면 all
-            @RequestParam(defaultValue = "30") int size) {        // 가져올 최신 알림 개수. 안 주면 30개
-        return notificationService.getNotifications(userId, category, size);
+            @AuthenticationPrincipal Long userId,
+            @RequestParam(defaultValue = "all") String category) {   // all / activity / etc
+        return notificationService.getNotifications(userId, category);
     }
 
     // 알림 1건 읽음 (N-02) — 멱등 204
