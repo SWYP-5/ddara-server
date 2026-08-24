@@ -9,6 +9,7 @@ import com.app.backend.domain.group.entity.Membership;
 import com.app.backend.domain.group.repository.MembershipRepository;
 import com.app.backend.domain.notification.dto.NotificationItem;
 import com.app.backend.domain.notification.dto.NotificationListResponse;
+import com.app.backend.domain.notification.dto.UnreadNotificationResponse;
 import com.app.backend.domain.notification.entity.Notification;
 import com.app.backend.domain.notification.entity.NotificationType;
 import com.app.backend.domain.notification.repository.NotificationRepository;
@@ -24,7 +25,6 @@ import com.app.backend.global.util.KstTime;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -268,7 +268,7 @@ public class NotificationService {
                 continue;
             }
             // 인앱 알림은 알림 설정과 무관하게 항상 저장한다 — 설정을 꺼도 알림 목록엔 표시돼야 한다.
-            notificationRepository.save(Notification.builder()
+            Notification saved = notificationRepository.save(Notification.builder()
                     .userId(userId)
                     .type(type)
                     .payload(payloadJson)
@@ -276,7 +276,8 @@ public class NotificationService {
             // 푸시(FCM)만 알림 설정을 따른다 — 꺼져 있으면 푸시는 발송하지 않는다.
             // 실패해도 예외를 던지지 않으므로(FcmService 내부 처리) 위 인앱 저장은 항상 유지된다.
             if (isAllowed(user.getNotificationPrefs(), type)) {
-                fcmService.sendTo(user, pushTitle(type), pushBody(type, payload), pushData(type, payload));
+                fcmService.sendTo(user, pushTitle(type), pushBody(type, payload),
+                        pushData(type, payload, saved.getId()));
             }
         }
     }
@@ -321,9 +322,10 @@ public class NotificationService {
     }
 
     /** 푸시 클릭 시 앱이 화면 이동에 쓸 data(모두 문자열이어야 함 — FCM 규격). */
-    private Map<String, String> pushData(NotificationType type, Map<String, Object> payload) {
+    private Map<String, String> pushData(NotificationType type, Map<String, Object> payload, Long notificationId) {
         Map<String, String> data = new LinkedHashMap<>();
         data.put("type", type.name());
+        data.put("notificationId", String.valueOf(notificationId));
         payload.forEach((k, v) -> {
             if (v != null) {
                 data.put(k, String.valueOf(v));
@@ -367,14 +369,20 @@ public class NotificationService {
         }
     }
 
+    /** 안읽은 알림 존재 여부 */
     @Transactional(readOnly = true)
-    public NotificationListResponse getNotifications(Long userId, String category, int size) {
+    public UnreadNotificationResponse hasUnread(Long userId) {
+        return new UnreadNotificationResponse(notificationRepository.existsByUserIdAndReadAtIsNull(userId));
+    }
+
+    @Transactional(readOnly = true)
+    public NotificationListResponse getNotifications(Long userId, String category) {
         // category(all/activity/etc)를 실제 알림 type 집합으로 변환
         Collection<NotificationType> types = resolveTypes(category);
 
-        // 내(userId) 알림 중 해당 type들만, 최신순으로 size개 조회 → 화면용 NotificationItem으로 변환
+        // 내(userId) 알림 중 해당 type들만, 최신순 전체 조회 → 화면용 NotificationItem으로 변환
         List<NotificationItem> items = notificationRepository
-                .findByUserIdAndTypeInOrderByCreatedAtDesc(userId, types, PageRequest.of(0, size))
+                .findByUserIdAndTypeInOrderByCreatedAtDesc(userId, types)
                 .stream()
                 .map(n -> toItem(n, userId))   // 알림 엔티티 → 응답 아이템(payload JSON 파싱 + 시각 +09:00 변환)
                 .toList();
