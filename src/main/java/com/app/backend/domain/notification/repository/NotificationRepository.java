@@ -20,6 +20,9 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     // 내 전체 안읽음 개수
     long countByUserIdAndReadAtIsNull(Long userId);
 
+    // 안읽은 알림 존재 여부
+    boolean existsByUserIdAndReadAtIsNull(Long userId);
+
     // 같은 회차·같은 단계의 DEADLINE 알림 중복 생성 방지용.
     // payload는 MySQL JSON 컬럼이라 저장 시 공백이 들어가 정규화되므로 LIKE 문자열 검색은 매칭되지 않는다.
     // JSON_EXTRACT로 값을 정확히 꺼내 비교한다(공백·키순서 무관).

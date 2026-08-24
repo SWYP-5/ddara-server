@@ -9,6 +9,7 @@ import com.app.backend.domain.group.entity.Membership;
 import com.app.backend.domain.group.repository.MembershipRepository;
 import com.app.backend.domain.notification.dto.NotificationItem;
 import com.app.backend.domain.notification.dto.NotificationListResponse;
+import com.app.backend.domain.notification.dto.UnreadNotificationResponse;
 import com.app.backend.domain.notification.entity.Notification;
 import com.app.backend.domain.notification.entity.NotificationType;
 import com.app.backend.domain.notification.repository.NotificationRepository;
@@ -366,6 +367,12 @@ public class NotificationService {
         } catch (JsonProcessingException e) {
             throw new CustomException(ErrorCode.INVALID_INPUT);
         }
+    }
+
+    /** 안읽은 알림 존재 여부 */
+    @Transactional(readOnly = true)
+    public UnreadNotificationResponse hasUnread(Long userId) {
+        return new UnreadNotificationResponse(notificationRepository.existsByUserIdAndReadAtIsNull(userId));
     }
 
     @Transactional(readOnly = true)

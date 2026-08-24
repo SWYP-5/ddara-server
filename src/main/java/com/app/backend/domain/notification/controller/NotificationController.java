@@ -1,6 +1,7 @@
 package com.app.backend.domain.notification.controller;
 
 import com.app.backend.domain.notification.dto.NotificationListResponse;
+import com.app.backend.domain.notification.dto.UnreadNotificationResponse;
 import com.app.backend.domain.notification.service.NotificationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -28,6 +29,12 @@ public class NotificationController {
             @AuthenticationPrincipal Long userId,
             @RequestParam(defaultValue = "all") String category) {   // all / activity / etc
         return notificationService.getNotifications(userId, category);
+    }
+
+    // 안읽은 알림 여부 조회
+    @GetMapping("/unread")
+    public UnreadNotificationResponse hasUnread(@AuthenticationPrincipal Long userId) {
+        return notificationService.hasUnread(userId);
     }
 
     // 알림 1건 읽음 (N-02) — 멱등 204
